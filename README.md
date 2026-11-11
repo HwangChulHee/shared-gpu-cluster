@@ -45,7 +45,9 @@ Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Anal
 
 ## 문서
 
-- [학습 및 구현 커리큘럼](docs/curriculum.md)
+- [학습 및 구현 커리큘럼 — 7 Phase / 27 Lab](docs/curriculum.md)
+- [학습 진도·이해도 기록](learning/progress.md)
+- [섹션별 평가 기준 및 기록 방법](learning/README.md)
 - [아키텍처·설계 결정 및 미결정 사항](docs/architecture.md)
 - [관측·부하·장애 실험 계획](docs/test-plan.md)
 - [실습 비용·운영 원칙](docs/operations.md)
@@ -65,6 +67,7 @@ Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Anal
 
 - [x] 목표·워크로드·학습 방식 정의
 - [x] 단계별 계획 및 실험 초안 작성
+- [x] 27개 Lab 및 섹션별 이해도 평가 체계 설계
 - [ ] AWS 사전 비용·쿼터·GPU 사양 검증
 - [ ] 단일 GPU 워크로드 실측
 - [ ] EKS 멀티 GPU 클러스터 구축
