@@ -9,28 +9,43 @@
 5. 운영 메트릭, 로그, 재현 가능한 장애 실험 및 복구 증거
 6. 클라우드 실습 후 비용이 발생하는 리소스 제거
 
-## 논리 구성
+## 논리 구성 — 사용자 데이터 경로와 클러스터 제어 경로 구분
 
 ```text
-              Team A             Team B                Team C
-             Gemma UI           YOLO UI              XGBoost UI
-                    \               |                 /
-                         React + Vite / FastAPI
-                                |
-                     AWS EKS managed control plane
-                                |
-                  +-------------+-------------+
-                  |                           |
-           CPU Node Group              GPU Node Group
-          API / monitoring           GPU Worker 01 (1 GPU)
-          cluster components         GPU Worker 02 (1 GPU)
-                                      ...
-                             Per-team whole-GPU workloads
-                                |
-                  S3 model/data source + shared storage candidate
+[Team A Chat UI]    [Team B YOLO UI]    [Team C XGBoost UI]
+         \                 |                    /
+                       React/Vite
+                           |
+                     FastAPI on CPU Node
+                     /             \
+     [DATA PATH: inference]     [CONTROL PATH: job creation]
+          |                            |
+   Gemma serving endpoint       Kubernetes API Server
+   on GPU Worker                (EKS managed control plane)
+          |                            |
+       Response                  Job/Pod desired state
+          |                            |
+   FastAPI → user          K8s Scheduler → GPU Worker 01/02
+                                        |
+                                   YOLO / XGBoost
+                                        |
+                           S3 job results / checkpoints
+                                        |
+                              FastAPI result lookup
+                                        |
+                                    user UI
+
+  CPU Node Group: FastAPI · supporting services · metrics
+  GPU Node Group: >= 2 separate NVIDIA GPU workers
+  GPU metrics: DCGM exporter → Prometheus → Grafana
+  Data assets: S3 first; EFS/CSI/cache evaluated later
 ```
 
-위 구성은 목표 논리 구조이며 실제 물리·네트워크 구성도는 AWS 구현 시 갱신합니다. Kubernetes Control Plane은 AWS 관리 영역에 있고 GPU/CPU 노드에 직접 배치하지 않습니다.
+- **실시간 데이터 경로:** 사용자 → FastAPI → 이미 실행 중인 Gemma 추론 서버 → 사용자.
+- **Job 제어 경로:** FastAPI가 제한된 Kubernetes API 권한으로 Job 생성 요청 → Control Plane의 컨트롤러/스케줄러가 실행 상태 조정 → GPU Worker에서 수행.
+- **결과 데이터 경로:** GPU 작업 → 지속 저장소(S3) → FastAPI 결과 조회 → 사용자. API Server를 모델 추론 데이터의 프록시로 사용하지 않는다.
+- Phase 02부터 최소한의 S3 결과/체크포인트 보존을 마련한다. Phase 05에서 EFS/CSI·스토리지 성능을 추가 검토한다.
+- 실험 세션별로 **Terraform 생성 → 애드온 및 Kubernetes 구성 적용 → 작업 실행 → 결과 보존 → 인프라 삭제** 순서를 재현한다.
 
 ## GPU 풀 공유의 의미
 
@@ -48,8 +63,8 @@
 | Kubernetes | EKS | 관리형 Control Plane + Worker 운영 실험 |
 | GPU | 서로 다른 EC2 GPU Worker 최소 2대 | 노드 단위 장애/재배치 및 자원 풀 공유 |
 | GPU 통합 | AL2023 NVIDIA EKS 최적화 AMI + 별도 Device Plugin 우선 검토 | AMI에 포함된 Driver/Toolkit 확인, Operator 중복 관리 방지. 다른 AMI 사용 시 포함 범위를 다시 검증 |
-| Pool 정책 | K8s 기본 스케줄링 → 필요 시 Kueue | 도입 전후 문제와 효과를 검증 |
-| Storage | S3 + EFS 후보 | 원본 아티팩트와 다중 노드 공유 파일 접근; I/O 성능 검증 후 확정 |
+| Pool 정책 | K8s 기본 스케줄링 → Kueue 비교 실험 | Kueue admission과 Kubernetes Pod scheduling의 역할·대기 상태를 나누어 측정 |
+| Storage | 초기 S3 결과/체크포인트 → 필요성 검증 후 EFS/CSI | Phase 02~04에 최소 영속성 확보, Phase 05에서 공유·I/O 성능 검증 |
 | Observability | DCGM, Prometheus, Grafana | GPU 사용량과 Job·Node·앱 지표 연결 |
 | IaC | Terraform | AWS 생성·삭제 및 구성 재현 |
 | Demo | React/Vite + FastAPI | 복잡한 제품 개발 없이 사용자 워크로드 재현 |
