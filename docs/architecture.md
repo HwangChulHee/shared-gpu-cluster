@@ -47,7 +47,7 @@
 | Cloud | AWS | 익숙한 VPC/IAM/EC2 기반으로 실험·자동화 |
 | Kubernetes | EKS | 관리형 Control Plane + Worker 운영 실험 |
 | GPU | 서로 다른 EC2 GPU Worker 최소 2대 | 노드 단위 장애/재배치 및 자원 풀 공유 |
-| GPU 통합 | EKS GPU AMI + NVIDIA Device Plugin 우선 | Driver/Toolkit의 중복 설치 방지; Operator는 필요성 확인 후 |
+| GPU 통합 | AL2023 NVIDIA EKS 최적화 AMI + 별도 Device Plugin 우선 검토 | AMI에 포함된 Driver/Toolkit 확인, Operator 중복 관리 방지. 다른 AMI 사용 시 포함 범위를 다시 검증 |
 | Pool 정책 | K8s 기본 스케줄링 → 필요 시 Kueue | 도입 전후 문제와 효과를 검증 |
 | Storage | S3 + EFS 후보 | 원본 아티팩트와 다중 노드 공유 파일 접근; I/O 성능 검증 후 확정 |
 | Observability | DCGM, Prometheus, Grafana | GPU 사용량과 Job·Node·앱 지표 연결 |
@@ -63,6 +63,8 @@
 - S3/EFS/로컬 캐시의 모델 로딩·학습 데이터 적합성
 - 지속형 추론 서비스에 GPU를 예약할지, 배치와의 경쟁을 허용할지
 - 실제 운영에 필요한 GPU 노드 스케일 정책 및 비용/가용성 trade-off
+- 2 GPU 조건에서 Gemma 실시간 서빙 1 GPU를 예약할 때의 배치 가용 용량·장애 허용 한계
+- GPU 노드 장애 시 용량 회복 목표와 실제 서비스 복구 목표(RTO 등)를 분리한 정책
 
 ## 불포함/한계
 
@@ -71,3 +73,4 @@
 - 물리 GPU 설치/수리/냉각 검증은 불가능하며 수행했다고 주장하지 않음
 - GPU Worker 1대 장애 시 다른 GPU의 잔여 용량이 없으면 즉시 재배치할 수 없음
 - 노드 교체, Job 재시도, 체크포인트 복구, 서비스 무중단은 서로 다른 보장 수준
+- 2 GPU 구성은 **노드 장애 재현 환경**이지 무중단 또는 다중 AZ 고가용성을 자동 보장하지 않음
