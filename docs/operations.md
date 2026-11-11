@@ -10,9 +10,19 @@
 - 가격은 프로젝트 초기부터 고정 수치로 기재하지 않고 각 세션의 리전·가격·시간·사용량을 기록
 - 체크포인트/모델 파일 등 보존이 필요한 결과물은 별도 비용과 삭제 정책 결정
 
+## 비용 세션 실행 전 게이트
+
+- [ ] 계정 GPU 인스턴스 쿼터(필요한 2개 노드 기준)·실제 AZ 용량 확인
+- [ ] 모델 최대 VRAM 및 GPU 사양 확인
+- [ ] EKS/CPU/GPU/EFS/NAT/LB/EBS/IPv4 등을 포함한 세션 예상 비용 산출
+- [ ] Terraform plan과 삭제 대상 리소스 확인
+- [ ] 실습 실행 스크립트·검증 명령·증거 저장 경로 준비
+- [ ] 실습 종료 후 destroy 및 잔여 과금 리소스 수동 점검
+
 ## GPU 실행 환경
 
 - 클라우드 GPU VM에서 OS/드라이버/Toolkit/Device Plugin 버전·구성 기록
+- AL2023 NVIDIA EKS 최적화 AMI 사용 시 기본 GPU Driver/Toolkit과 별도 Device Plugin의 버전·설치 책임 확인. 다른 AMI 선택 시 포함 구성 재확인
 - NVIDIA GPU Operator 사용 여부는 EKS AMI의 기설치 컴포넌트와 중복 가능성을 먼저 판단
 - GPU Operator와 Device Plugin을 함께 중복 관리하는 구성을 무비판적으로 적용하지 않음
 - 이미지·모델·데이터셋 버전 및 라이선스 확인
