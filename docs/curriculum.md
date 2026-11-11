@@ -17,7 +17,7 @@
 - **G2** AWS EKS + 서로 다른 GPU Worker 2대 이상: 다중 노드 공유·장애 검증
 - **O** 오프라인 결과 분석: 수집된 로그·메트릭·보고서 검토
 
-Lab의 권장 환경은 최소 요구입니다. 실제 의존성과 세션 비용에 따라 실행 순서를 묶을 수 있습니다. **초기 GPU 관측은 Phase 01의 `nvidia-smi`/NVML과 Phase 02의 Events부터 시작하고, DCGM·Prometheus·Grafana 통합은 Phase 05에서 수행합니다.**
+Lab의 권장 환경은 최소 요구입니다. 실제 의존성과 세션 비용에 따라 실행 순서를 묶을 수 있습니다. **이론 전용 Lab의 적용력은 GPU 실행 대신 시나리오 기반 진단·설계 문제로 평가할 수 있으며, 해당 평가는 실기 검증과 구분해 기록합니다.** **초기 GPU 관측은 Phase 01의 `nvidia-smi`/NVML과 Phase 02의 Events부터 시작하고, DCGM·Prometheus·Grafana 통합은 Phase 05에서 수행합니다.**
 
 ## Phase 01 — GPU 실행 환경과 실제 워크로드
 
@@ -43,9 +43,9 @@ Lab의 권장 환경은 최소 요구입니다. 실제 의존성과 세션 비�
 | 02-01 AWS 네트워크·권한 | VPC/subnet/route, EKS API, 노드 IAM, SG, 접근 경로 | Terraform 설계/plan 및 최소 연결성 검증 | L+G2 / 계획·네트워크 검증 |
 | 02-02 EKS와 노드 그룹 | Managed Control Plane, CPU/GPU Node Group, AZ, taint/label | CPU 시스템 노드 및 GPU Worker 2대 구축 | G2 / 노드·AZ·GPU 사양 목록 |
 | 02-03 Kubernetes GPU 등록 | AL2023 NVIDIA EKS 최적화 AMI(선택 시) 내 Driver/Toolkit, 별도 Device Plugin, kubelet, `nvidia.com/gpu` | 실제 AMI·플러그인 버전 확인, 각 Worker GPU 등록 및 동시 Job 실행 | G2 / Capacity·Allocatable·Pod 배치 |
-| 02-04 IaC 운영·수명주기 | Terraform state, 의존성, 재현성, destroy 후 잔여 자원 | 재구축 및 전체 삭제 테스트 | G2/O / 코드·상태·비용 점검 |
+| 02-04 IaC 운영·수명주기 | Terraform state, 의존성, 재현성, destroy 후 잔여 자원; **최소 S3 결과·체크포인트 저장 경로 및 권한** | 최소 영속 저장 경로 검증 → 결과 외부 보존 → 클러스터 삭제·재생성, Kubernetes 애드온·매니페스트 재적용 | G2/O / 저장 객체·권한·재구축/전체 삭제 증거 |
 
-**Phase 완료:** 서로 다른 GPU Worker에서 동시 실행 증거 및 구축/삭제 재현성. GPU Operator는 AMI·Device Plugin과의 중복 관계를 이해한 뒤 필요 시 도입한다.
+**Phase 완료:** 서로 다른 GPU Worker에서 동시 실행, **노드 교체 후에도 보존되는 최소 S3 결과/체크포인트 경로**, Terraform + Kubernetes 구성 재적용·삭제 검증. 공유 파일시스템·CSI·I/O 분석은 Phase 05에서 깊게 다룬다. GPU Operator는 AMI·Device Plugin과의 중복 관계를 이해한 뒤 필요 시 도입한다.
 
 ## Phase 03 — GPU 풀 스케줄링과 부서별 운영
 
@@ -55,9 +55,9 @@ Lab의 권장 환경은 최소 요구입니다. 실제 의존성과 세션 비�
 |---|---|---|---|
 | 03-01 GPU Job 스케줄링 | `nvidia.com/gpu` 정수 할당, Scheduler, Pending 및 Job lifecycle | GPU 2개 점유 → 3번째 팀 Job 대기 → GPU 반환 후 배치 | L 사전분석+G2 / 이벤트·대기시간 |
 | 03-02 팀별 격리·정책 | Namespace, RBAC, GPU ResourceQuota, 우선순위; 단순 제한과 공정성의 차이 | 팀별 작업 수·GPU 요청 제한 및 정책의 부작용 검증 | L+G2 / 허용/거부·스케줄링 증거 |
-| 03-03 큐·공정성 비교 | 기본 K8s 스케줄링과 Kueue admission, ClusterQueue/LocalQueue·borrowing | 동일 제출 패턴으로 먼저 기본 상태 측정; 필요성이 증명되면 Kueue 적용 전후 비교 | G2 / 팀별 대기·완료 시간, 정책·한계 |
+| 03-03 큐·공정성 비교 | 기본 Scheduler의 Pod Pending vs Kueue의 Workload admission·Job suspension, ClusterQueue/LocalQueue·borrowing | **기본 스케줄링 기준선 → Kueue 설치·정책 적용 → 동일 제출 패턴 비교**; Kueue 미승인과 Scheduler 미배치를 따로 기록 | G2 / Workload·Job·Pod 상태, 팀별 대기·완료 시간 |
 
-**Phase 완료:** 2 GPU에 대한 3팀의 실제 점유·대기·반환 기록과 정책 비교. **GPU 분할 공유는 하지 않는다.**
+**Phase 완료:** 2 GPU에 대한 3팀의 실제 점유·대기·반환 기록, **Kueue 도입 전후 비교** 및 각각의 admission/스케줄링 상태 증거. GPU 분할 공유는 하지 않는다.
 
 ## Phase 04 — 실제 부서 사용자 서비스
 
@@ -66,7 +66,7 @@ Lab의 권장 환경은 최소 요구입니다. 실제 의존성과 세션 비�
 | Lab | 학습·내부 동작 | 실습 | 환경 / 완료 증거 |
 |---|---|---|---|
 | 04-01 사용자 흐름·UI | 실시간 추론/비동기 Job, 제출·조회·결과 API의 차이 | React/Vite의 Gemma 채팅·YOLO 학습·XGBoost 분석 화면 제작 | L / UI와 API 계약 |
-| 04-02 실행 API | FastAPI, 허용된 Job 템플릿, 결과 저장, Pod/Job 상태 | YOLO/XGBoost 제출·상태 조회·결과 연결 | L+G2 / 실제 Job/응답/결과 |
+| 04-02 실행 API | FastAPI, 허용된 Job 템플릿, Kubernetes Job 생성(제어 경로), 작업 상태·영속 결과 조회(데이터 경로) | Phase 02의 최소 S3 결과 저장 경로를 사용해 YOLO/XGBoost 제출·상태·결과 연결 | L+G2 / 실제 Job·S3 객체·사용자 응답 |
 | 04-03 Gemma 서비스 | 상시 GPU 점유와 종료형 배치 추론의 정책 차이, 모델 로딩·응답 지연 | 채팅 추론 서비스와 별도 종료형 배치 작업 실행 | G1/G2 / 실제 응답·VRAM·로그 |
 | 04-04 접근 제어 | 신뢰 가능한 팀 ID, 서버 측 권한 검사, 최소 ServiceAccount/RBAC | 타 팀 작업 접근 및 임의 명령/이미지 제출 거부 검증 | L+G2 / 허용·거부 테스트 |
 
@@ -78,7 +78,7 @@ Lab의 권장 환경은 최소 요구입니다. 실제 의존성과 세션 비�
 
 | Lab | 학습·내부 동작 | 실습 | 환경 / 완료 증거 |
 |---|---|---|---|
-| 05-01 스토리지 경로 | S3 원본 vs EFS/PVC·캐시, 데이터셋/체크포인트, 모델 로딩과 VRAM 차이 | 데이터 접근·학습 결과·체크포인트 보존, I/O 측정 | L+G2 / 경로도·처리량 |
+| 05-01 스토리지 경로 | Phase 02의 최소 S3 영속 경로 확장: S3 원본 vs EFS/PVC·CSI·캐시, 데이터 로딩/체크포인트, VRAM과 구분 | 공유 파일시스템 필요성 비교, CSI/PVC·I/O 측정과 장애 후 체크포인트 재사용 검증 | L+G2 / 경로도·처리량·보존/복구 검증 |
 | 05-02 네트워킹 | VPC CNI, Pod/Service 통신, DNS, NetworkPolicy, MTU·대역폭 | API↔Job↔스토리지 연결성·격리 및 지연 측정 | L+G2 / 네트워크 진단 |
 | 05-03 GPU 메트릭 | DCGM/NVML, exporter→Prometheus→Grafana, Node/Job 지표의 출처 | GPU 사용률·VRAM과 Worker·Job 상태 시각화 | G1/G2 / 실제 대시보드 |
 | 05-04 서비스 지표·기준선 | 지연, 처리량, 큐 지연, 시간동기화, 메트릭 상관관계 | Gemma/YOLO/XGBoost 실험 기준선과 반복 측정 | G2/O / 버전·메트릭·반복 기록 |
