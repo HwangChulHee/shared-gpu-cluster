@@ -45,7 +45,7 @@ Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Anal
 
 ## 문서
 
-- [학습 및 구현 커리큘럼 — 7 Phase / 27 Lab](docs/curriculum.md)
+- [학습 및 구현 커리큘럼 — 7 Phase / 29 Lab](docs/curriculum.md)
 - [학습 진도·이해도 기록](learning/progress.md)
 - [섹션별 평가 기준 및 기록 방법](learning/README.md)
 - [아키텍처·설계 결정 및 미결정 사항](docs/architecture.md)
@@ -58,7 +58,7 @@ Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Anal
 1. AWS 구축에 앞서 GPU 인스턴스 쿼터, 가용성, AMI 및 모델 메모리 적합성을 확인
 2. CPU 기반 사전 검증과 실제 GPU 테스트를 구분하고, 실제 GPU가 필요한 경우만 가동
 3. EKS GPU 최적화 AMI의 Driver/Container Toolkit 구성과 Device Plugin/Operator 중복 설치 위험 확인
-4. Kubernetes 기본 Job/Quota의 한계를 실제로 관찰한 뒤 필요한 경우 Kueue 추가
+4. GPU Job의 기본 점유·대기·반환을 **사용자 UI 연동 전에** 검증하고, 기본 Job/Quota의 한계를 관찰한 뒤 필요한 경우 Kueue 추가
 5. 정상 상태 기준선을 기록한 후 통제된 장애를 주입해 원인·영향·복구를 증거로 검증
 6. 전체 GPU Worker가 장애 또는 점유된 경우 **자동 복구·무중단 보장을 가정하지 않음**
 7. 구현되지 않은 기능과 가상 수치, 실측 결과를 명확히 분리
@@ -67,7 +67,7 @@ Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Anal
 
 - [x] 목표·워크로드·학습 방식 정의
 - [x] 단계별 계획 및 실험 초안 작성
-- [x] 27개 Lab 및 섹션별 이해도 평가 체계 설계
+- [x] 29개 Lab 및 섹션별 이해도 평가 체계 설계
 - [ ] AWS 사전 비용·쿼터·GPU 사양 검증
 - [ ] 단일 GPU 워크로드 실측
 - [ ] EKS 멀티 GPU 클러스터 구축
