@@ -57,8 +57,8 @@ Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Anal
 
 1. AWS 구축에 앞서 GPU 인스턴스 쿼터, 가용성, AMI 및 모델 메모리 적합성을 확인
 2. CPU 기반 사전 검증과 실제 GPU 테스트를 구분하고, 실제 GPU가 필요한 경우만 가동
-3. EKS GPU 최적화 AMI의 Driver/Container Toolkit 구성과 Device Plugin/Operator 중복 설치 위험 확인
-4. GPU Job의 기본 점유·대기·반환을 **사용자 UI 연동 전에** 검증하고, 기본 Job/Quota의 한계를 관찰한 뒤 필요한 경우 Kueue 추가
+3. EKS GPU 최적화 AMI의 Driver/Container Toolkit 구성과 Device Plugin/Operator 중복 설치 위험 확인, 초기부터 최소 S3 결과·체크포인트 영속성 확보
+4. GPU Job의 기본 점유·대기·반환을 **사용자 UI 연동 전에** 검증하고, 같은 작업 패턴을 사용해 **Kueue 도입 전후 공정성**을 비교
 5. 정상 상태 기준선을 기록한 후 통제된 장애를 주입해 원인·영향·복구를 증거로 검증
 6. 전체 GPU Worker가 장애 또는 점유된 경우 **자동 복구·무중단 보장을 가정하지 않음**
 7. 구현되지 않은 기능과 가상 수치, 실측 결과를 명확히 분리
