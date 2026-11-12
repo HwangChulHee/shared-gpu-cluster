@@ -1,54 +1,54 @@
-# AI/GPU Infrastructure Lab
+# AI/GPU Infrastructure Operations Lab
 
-**AWS 기반 NVIDIA GPU 학습 인프라 구축·운영·성능 검증 포트폴리오**. 저장소 이름 `shared-gpu-cluster`는 유지합니다.
+> 저장소 URL은 기존 `shared-gpu-cluster`를 유지합니다. **목표는 GPU 공유 서비스 개발이 아니라 Linux GPU 서버 구축·운영 역량을 증명하고, 그 환경을 Kubernetes로 확장하는 것**입니다.
 
-> 상태: **21개 Lab 커리큘럼 재설계 완료 / GPU 실측 대기**. 계획·예상값은 실제 측정 결과가 아닙니다. 2026-11-12 서울 리전 On-Demand G/VT 쿼터 8 vCPU 승인 및 실제 적용 확인. GPU EC2 실행은 아직 미실시입니다.
+**상태 (2026-11-13):** 7 Phase / 21 Lab 커리큘럼 개편. 서울 리전 On-Demand G/VT **8 vCPU 쿼터 승인·적용 확인**(AWS CLI 실제 출력). **GPU EC2 실행, YOLO GPU 실측, EKS 배포는 아직 미수행**입니다.
 
-## 무엇을 증명하는가
+## 프로젝트 시나리오
 
-1. **서버·런타임**: Linux → NVIDIA Driver → CUDA → NVIDIA Container Toolkit → YOLO/PyTorch 실행 계층을 설명하고 실제 GPU에서 검증
-2. **클라우드·Kubernetes**: Terraform, AWS VPC/IAM/EKS, 서로 다른 GPU Worker 2대, Device Plugin, GPU Job 배치
-3. **데이터 경로**: S3·EBS·로컬 캐시, CPU DataLoader, GPU 연산, Checkpoint 저장 및 I/O 관측
-4. **관측·진단**: NVML/DCGM, Prometheus/Grafana, K8s Events/로그를 활용해 GPU OOM·입력 병목·GPU 미등록·Worker 장애를 구분
-5. **증거 기반 운영**: 실제 공개 사례를 참고한 안전한 실험, 성능 대조군, RCA/Runbook, 비용 및 리소스 삭제
+이미지 학습을 수행하는 가상의 AI 연구팀에 **재현 가능한 GPU 학습 환경**을 제공한다. 운영자는 드라이버·CUDA·컨테이너를 설치·진단하고, 데이터를 저장·공급하며, GPU 사용 및 학습 성능을 측정한다. 그다음 동일한 YOLO 작업을 EKS GPU Worker로 이전하여 노드·Job을 운영한다. 이 과정은 실제 고객 서비스 구축을 주장하는 것이 아니라 **실무 요구사항을 가정한 랩**이다.
 
-GPU 모델은 **YOLO 학습 하나**로 통일합니다. Gemma/XGBoost는 이전 학습 기록에만 보존하며 새 필수 실습에서 제외합니다. Slurm, 사용자 웹 UI, 자체 스케줄러, MIG/분할 GPU, 분산 학습은 제외합니다.
-
-## 아키텍처 (계획)
+### 단계별 확장
 
 ```text
-YOLO training container / Kubernetes Job
-          |                   |
-     S3 dataset/results   Kubernetes API (EKS)
-          |                   |
-      local EBS cache    kube-scheduler / GPU Device Plugin
-          |                   |
-          +----> GPU Worker A / GPU Worker B (NVIDIA GPU x1 each)
-                             |
-               NVIDIA Driver + CUDA + Container Toolkit
-                             |
-                  DCGM exporter -> Prometheus -> Grafana
+Phase 01   Linux GPU EC2 (G1)
+           Driver → Container Toolkit → PyTorch/CUDA → YOLO
+                 |
+Phase 02   CPU/RAM/process/log + VPC/S3/EBS + DataLoader/Checkpoint
+                 |
+Phase 03   NVML/DCGM → Prometheus/Grafana(단일 서버) → 성능 기준선
+                 |
+Phase 04   Terraform + AWS EKS + GPU Worker x2 + Device Plugin
+                 |
+Phase 05   GPU Job 배치/노드 확장 + K8s GPU 관측
+                 |
+Phase 06   실제 공개 사례 기반 메모리·데이터·런타임·노드 장애 검증
+                 |
+Phase 07   재현성·운영 보고서·Runbook/RCA
 ```
 
-- **G1:** GPU EC2 1대로 Driver/컨테이너/YOLO/메모리/입출력 검증.
-- **G2:** EKS + 별도 GPU Worker 2대로 GPU 등록, Job 대기·배치·노드 중단 검증.
-- Kueue는 **선택적 비교**. 기본 kube-scheduler의 한계를 실측한 후 도입 여부 판단.
-- GPU 공유는 전체 GPU 단위의 Job 자원 할당이며 단일 GPU 동시 분할을 뜻하지 않습니다.
-- 사용자 앱 개발보다 **GPU 인프라 엔지니어의 구축·운영·진단**에 집중합니다.
+GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, G2는 EKS GPU Worker 2대**를 뜻합니다. G1과 G2를 동시에 띄울 필요는 없습니다. `g6.xlarge`(4 vCPU) 2대는 **쿼터상 가능**하지만 실제 AZ 용량·비용은 실행 전에 확인합니다.
+
+## 핵심 역량
+
+- **시스템:** Linux 프로세스·메모리·디스크·로그, NVIDIA Driver/ToolKit/CUDA, GPU 진단
+- **학습 실행:** YOLO 단일 작업, VRAM/CPU/DataLoader/Checkpoint
+- **네트워크·스토리지:** S3/EBS/로컬 캐시, 접근 경로·권한·I/O 측정
+- **관측:** nvidia-smi/NVML/DCGM, CPU/디스크 지표, Prometheus/Grafana
+- **클러스터:** Terraform·EKS·Device Plugin·GPU Job·노드 확장 및 재배치
+- **검증:** 실제 운영 사고/성능 실험을 근거로 한 통제 실험, RCA/Runbook
+
+**범위 제외:** React/FastAPI 사용자 서비스, Gemma/XGBoost 다중 모델, Slurm, MIG/time-slicing, 분산 GPU 학습. **Kueue는 선택적 심화**이고 프로젝트 완료에 필요하지 않습니다.
 
 ## 문서
 
-- [커리큘럼 — 7 Phase / 21 Lab](docs/curriculum.md)
-- [21개 Lab 학습·실습 교안](docs/labs/README.md)
-- [아키텍처와 설계 판단](docs/architecture.md)
-- [사례 기반 테스트 계획](docs/test-plan.md)
-- [실무 레퍼런스 및 한계](docs/references.md)
-- [GPU 비용·안전·정리 절차](docs/operations.md)
-- [기존 29 Lab에서의 이관 및 과거 학습 이력](docs/migration-2026-11-12.md)
-- [학습 진행·이해도](learning/progress.md) · [대화형 학습 규칙](learning/GPT_GUIDE.md)
+- [21 Lab 단계별 커리큘럼](docs/curriculum.md) · [21개 Lab 교안](docs/labs/README.md)
+- [단일 GPU → Kubernetes 확장 아키텍처](docs/architecture.md)
+- [사례 기반 실험 계획](docs/test-plan.md) · [공식·실무 근거](docs/references.md)
+- [GPU 비용·안전·삭제 원칙](docs/operations.md)
+- [2026-11-13 Lab 재배치 대응표](docs/migration-2026-11-13.md) · [이전 29→21 개편 기록](docs/migration-2026-11-12.md)
+- [학습 진도](learning/progress.md) · [대화형 학습 가이드](learning/GPT_GUIDE.md)
 
-## 실행 원칙
+## 실습 원칙
 
-**이론 선행 → 실습 계획·Terraform 준비 → GPU 비용 확인 → 짧은 실습 세션 → 실측 증거 보관 → 인프라 삭제 확인.** 실패를 유도한 실험과 실제 자연 발생 장애를 혼동하지 않습니다. Checkpoint는 YOLO 예제 워크로드 책임이며 Kubernetes가 자동으로 학습 상태를 보존하지 않습니다.
-
-실습/CI 결과는 실제 출력 확보 후에만 기록합니다.
+**개념 → 서술형 질문 한 개 → 피드백 → 실습 → 관측 → 증거 기록.** 비용 없이 이론·이미지·Terraform 계획을 준비한 다음 GPU 세션을 짧게 운영하고 저장·삭제합니다. 실제 관측 없이 성공/성능 개선을 주장하지 않습니다.
