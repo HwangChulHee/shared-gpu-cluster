@@ -1,78 +1,54 @@
-# Shared GPU Cluster
+# AI/GPU Infrastructure Lab
 
-AWS EKS 기반 **공유 GPU 컴퓨팅 클러스터**를 학습·구축하고, 세 팀의 실제 AI 워크로드를 운영하며 **스케줄링, 관측, 성능 및 장애 대응**을 검증하는 프로젝트입니다.
+**AWS 기반 NVIDIA GPU 학습 인프라 구축·운영·성능 검증 포트폴리오**. 저장소 이름 `shared-gpu-cluster`는 유지합니다.
 
-> 상태: **설계 및 커리큘럼 수립 완료 / 구현·측정 전**. 이 저장소의 계획은 검증 완료를 의미하지 않습니다.
+> 상태: **21개 Lab 커리큘럼 재설계 완료 / GPU 실측 대기**. 계획·예상값은 실제 측정 결과가 아닙니다. 2026-11-12 기준 GPU 계열 EC2 쿼터 증액 요청 결과를 아직 확인하지 못했습니다.
 
-## 목표와 범위
+## 무엇을 증명하는가
 
-- **GPU 풀 공유**: GPU 1개를 쪼개는 방식(MIG/time-slicing)이 아닌, 서로 다른 GPU Worker의 **전체 GPU 단위** 자원 풀 공유
-- **최소 2 GPU / 2 GPU Worker**: 서로 다른 노드에 GPU를 1개 이상씩 배치하여 동시 작업·자원 고갈·노드 장애 시험
-- **실제 사용자 서비스**: Gemma 4 채팅, YOLO 이미지 학습, XGBoost 정형 데이터 분석
-- **운영 엔지니어링**: Kubernetes Job/스케줄링, 팀별 접근 정책, 메트릭과 로그, 재현 가능한 테스트, RCA/Runbook
-- **학습형 구축**: 개념 → 내부 동작 → 서술형 점검 → 실습 → 관측·검증 → IaC/문서화
-- **비용 통제**: GPU는 단시간 세션으로 사용하고 사용 후 AWS 자원을 확인·제거
+1. **서버·런타임**: Linux → NVIDIA Driver → CUDA → NVIDIA Container Toolkit → YOLO/PyTorch 실행 계층을 설명하고 실제 GPU에서 검증
+2. **클라우드·Kubernetes**: Terraform, AWS VPC/IAM/EKS, 서로 다른 GPU Worker 2대, Device Plugin, GPU Job 배치
+3. **데이터 경로**: S3·EBS·로컬 캐시, CPU DataLoader, GPU 연산, Checkpoint 저장 및 I/O 관측
+4. **관측·진단**: NVML/DCGM, Prometheus/Grafana, K8s Events/로그를 활용해 GPU OOM·입력 병목·GPU 미등록·Worker 장애를 구분
+5. **증거 기반 운영**: 실제 공개 사례를 참고한 안전한 실험, 성능 대조군, RCA/Runbook, 비용 및 리소스 삭제
 
-## 시스템 개요 (계획)
+GPU 모델은 **YOLO 학습 하나**로 통일합니다. Gemma/XGBoost는 이전 학습 기록에만 보존하며 새 필수 실습에서 제외합니다. Slurm, 사용자 웹 UI, 자체 스케줄러, MIG/분할 GPU, 분산 학습은 제외합니다.
+
+## 아키텍처 (계획)
 
 ```text
-Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Analysis UI
-             \                          |                          /
-                     React/Vite + FastAPI (restricted endpoints)
-                                      |
-                           AWS EKS (managed control plane)
-                            /                        \
-                    CPU node group              GPU worker nodes
-              API / monitoring / jobs       GPU-01       GPU-02
-                                                    |
-                                  whole GPU allocation (nvidia.com/gpu)
-                                      |
-                               Storage: S3 + EFS (candidate)
-                               Metrics: DCGM + Prometheus + Grafana
+YOLO training container / Kubernetes Job
+          |                   |
+     S3 dataset/results   Kubernetes API (EKS)
+          |                   |
+      local EBS cache    kube-scheduler / GPU Device Plugin
+          |                   |
+          +----> GPU Worker A / GPU Worker B (NVIDIA GPU x1 each)
+                             |
+               NVIDIA Driver + CUDA + Container Toolkit
+                             |
+                  DCGM exporter -> Prometheus -> Grafana
 ```
 
-**역할 차이**: Gemma 채팅은 실시간 추론 서비스가 적합하고, YOLO/XGBoost 학습은 비동기 Job이 적합합니다. 리소스 풀 검증을 위해 별도로 *종료 가능한 Gemma 배치 추론 작업*도 마련합니다. 실시간 추론 서비스의 GPU 상시 점유와 배치 작업의 대기·복구 정책을 구분해서 측정합니다.
-
-## 워크로드
-
-| 팀 | 워크로드 | 사용자 시연 | 핵심 인프라 관측 |
-|---|---|---|---|
-| A | Gemma 4 소형/양자화 모델 (정확한 크기·서빙 방식은 GPU 선정 후 확정) | 질문 → 추론 결과 | 초기 로딩, VRAM, 지연·처리량 |
-| B | 소형 YOLO 모델 파인튜닝 | 데이터셋·epoch 선택 → 학습 결과 | GPU 사용률, Job/체크포인트, 재시도 |
-| C | XGBoost CUDA 학습 | 데이터셋 선택 → 학습·예측 결과 | 배치 처리시간, 대기시간, I/O |
-
-모델 품질 경쟁이 아니라 **서로 다른 자원 사용 특성을 가진 워크로드를 이용한 인프라 실험**이 목적입니다. 사용자 UI는 최소 기능 위주로 구성하며, 사용자 역할의 보안은 서버 측 검증과 최소 권한 RBAC를 통해 별도로 구현합니다.
+- **G1:** GPU EC2 1대로 Driver/컨테이너/YOLO/메모리/입출력 검증.
+- **G2:** EKS + 별도 GPU Worker 2대로 GPU 등록, Job 대기·배치·노드 중단 검증.
+- Kueue는 **선택적 비교**. 기본 kube-scheduler의 한계를 실측한 후 도입 여부 판단.
+- GPU 공유는 전체 GPU 단위의 Job 자원 할당이며 단일 GPU 동시 분할을 뜻하지 않습니다.
+- 사용자 앱 개발보다 **GPU 인프라 엔지니어의 구축·운영·진단**에 집중합니다.
 
 ## 문서
 
-- [학습 및 구현 커리큘럼 — 7 Phase / 29 Lab](docs/curriculum.md)
-- [29개 Lab별 학습 교안·실습 과제](docs/labs/README.md)
-- [GPT와 함께하는 대화형 학습 가이드](learning/GPT_GUIDE.md)
-- [학습 진도·이해도 기록](learning/progress.md)
-- [섹션별 평가 기준 및 기록 방법](learning/README.md)
-- [아키텍처·설계 결정 및 미결정 사항](docs/architecture.md)
-- [관측·부하·장애 실험 계획](docs/test-plan.md)
-- [실습 비용·운영 원칙](docs/operations.md)
-- [참고 자료](docs/references.md)
+- [커리큘럼 — 7 Phase / 21 Lab](docs/curriculum.md)
+- [21개 Lab 학습·실습 교안](docs/labs/README.md)
+- [아키텍처와 설계 판단](docs/architecture.md)
+- [사례 기반 테스트 계획](docs/test-plan.md)
+- [실무 레퍼런스 및 한계](docs/references.md)
+- [GPU 비용·안전·정리 절차](docs/operations.md)
+- [기존 29 Lab에서의 이관 및 과거 학습 이력](docs/migration-2026-11-12.md)
+- [학습 진행·이해도](learning/progress.md) · [대화형 학습 규칙](learning/GPT_GUIDE.md)
 
-## 진행 원칙
+## 실행 원칙
 
-1. AWS 구축에 앞서 GPU 인스턴스 쿼터, 가용성, AMI 및 모델 메모리 적합성을 확인
-2. CPU 기반 사전 검증과 실제 GPU 테스트를 구분하고, 실제 GPU가 필요한 경우만 가동
-3. EKS GPU 최적화 AMI의 Driver/Container Toolkit 구성과 Device Plugin/Operator 중복 설치 위험 확인, 초기부터 최소 S3 결과·체크포인트 영속성 확보
-4. GPU Job의 기본 점유·대기·반환을 **사용자 UI 연동 전에** 검증하고, 같은 작업 패턴을 사용해 **Kueue 도입 전후 공정성**을 비교
-5. 정상 상태 기준선을 기록한 후 통제된 장애를 주입해 원인·영향·복구를 증거로 검증
-6. 전체 GPU Worker가 장애 또는 점유된 경우 **자동 복구·무중단 보장을 가정하지 않음**
-7. 구현되지 않은 기능과 가상 수치, 실측 결과를 명확히 분리
+**이론 선행 → 실습 계획·Terraform 준비 → GPU 비용 확인 → 짧은 실습 세션 → 실측 증거 보관 → 인프라 삭제 확인.** 실패를 유도한 실험과 실제 자연 발생 장애를 혼동하지 않습니다. Checkpoint는 YOLO 예제 워크로드 책임이며 Kubernetes가 자동으로 학습 상태를 보존하지 않습니다.
 
-## 현재 단계
-
-- [x] 목표·워크로드·학습 방식 정의
-- [x] 단계별 계획 및 실험 초안 작성
-- [x] 29개 Lab 및 섹션별 이해도 평가 체계 설계
-- [ ] AWS 사전 비용·쿼터·GPU 사양 검증
-- [ ] 단일 GPU 워크로드 실측
-- [ ] EKS 멀티 GPU 클러스터 구축
-- [ ] 사용자 서비스 및 팀별 GPU 공유 검증
-- [ ] 모니터링·부하·장애 실험
-- [ ] 재현성 검증 및 운영 보고서
+실습/CI 결과는 실제 출력 확보 후에만 기록합니다.
