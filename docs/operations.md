@@ -11,7 +11,7 @@
 | 부대 비용 | GPU EC2/EBS/S3/트래픽/공인 IPv4 등 | GPU EC2 + EKS Control Plane·CPU Node·EBS/NAT/LB 등 |
 | 최소 필수 | GPU 1대 | 서로 다른 GPU Worker 2대 |
 
-**G1 실험을 마치고 종료·증거 보존 후 G2 구축**한다. CUDA/모델/실험 코드는 재사용하되 Terraform 구성은 환경별로 구분한다.
+**G1 세션:** Phase 01–03 + **06-01 CUDA OOM·06-02 DataLoader 성능 비교**를 하나의 실행 구간으로 묶어 완료한다. **G2 세션:** Phase 04–05 + **06-03 GPU 인식·06-04 Worker 중단**을 묶는다. G1 종료·증거 보존 후 G2를 구축하고 GPU 사용료가 중복되지 않도록 한다. CUDA/모델/실험 코드는 재사용하되 Terraform 구성은 환경별로 구분한다.
 
 ## 실습 전 게이트
 
@@ -20,6 +20,7 @@
 - [ ] 사용할 Linux AMI·NVIDIA Driver/CUDA·Toolkit·컨테이너·YOLO 이미지 버전 지원 확인
 - [ ] G1 또는 G2의 비용 견적 (EBS/NAT/인증/CloudWatch/S3 포함)·예산·실습 시간 설정
 - [ ] 실제 실행 명령, 데이터·Checkpoint 보존 경로, 안전한 복구·삭제 절차 준비
+- [ ] **G1 단일 GPU EC2부터 Terraform으로 생성**하도록 코드·state·destroy 경로를 사전 준비. Terraform state에 자격 증명 저장/공개 금지
 - [ ] `terraform plan`에서 생성 자원·출력·destroy 영향 확인
 - [ ] GPU 종료 후 EC2/EKS/EBS/NAT/LB/ENI/IPv4/CloudWatch/S3 등 잔여 과금 점검
 
