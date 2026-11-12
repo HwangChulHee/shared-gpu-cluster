@@ -1,73 +1,61 @@
-# 실제 사례 기반 GPU 성능·운영 검증 계획
+# Linux GPU 서버 → EKS 확장: 성능·운영 검증 계획
 
-> **계획 / 아직 GPU 실측 결과 없음**. 외부 사례의 수치·증상과 우리 실험 결과를 혼합하지 않는다. 강제 장애 주입은 자연 발생 운영 사고가 아니다.
+> **모두 계획. 실제 GPU 실행 및 장애 주입 전**. 공개 사례는 운영 사고, 성능 실험, 공식 가이드 유형으로 구분하며 실험 결과를 차용하지 않습니다.
 
-## 실험 공통 규칙
+## 실험 구조
 
-- 고정: AWS 리전·AZ, GPU 인스턴스/AMI, CUDA/Driver/컨테이너/YOLO 버전, 데이터셋/seed, 이미지 크기, Epoch/Batch, 캐시(콜드·웜) 상태.
-- 측정: 시작·종료·데이터 준비 시간, GPU Util/VRAM, CPU/RAM 사용, 데이터 처리량(images/s), Epoch 시간, I/O 처리량, Job 상태/Events.
-- 예상 가설, 관측, **가설이 틀렸을 때 나타날 반증 조건**, 반복 횟수와 오차·실험 한계를 기록한다.
-- 실험 전 정상 기준선 확보. GPU 부족/계정 쿼터 때문에 실행할 수 없으면 `미실행` 명시.
+| 구간 | 검증 | Lab |
+|---|---|---|
+| G1 기본 | nvidia-smi, 컨테이너, PyTorch CUDA, YOLO 실행 | 01-03 |
+| G1 시스템 | Linux 프로세스/메모리·디스크, S3/EBS 접근, 데이터 로더·Checkpoint | 02-01~03 |
+| G1 관측 | DCGM/호스트 지표·Prometheus/Grafana, 전체 학습 소요시간 구간 분해 | 03-01~03 |
+| G2 확장 | 같은 YOLO Job의 GPU 등록·Pod/Node 배치·모니터링 확장 | 04-01~05-03 |
+| 장애·실험 | CUDA OOM, AWS DataLoader 성능, GPU 인식 문제, Worker 재시작 | 06-01~04 |
 
-## B01 — 정상 GPU 실행 기준선
+## 기준선과 데이터의 신뢰성
 
-- 원인/목적: GPU Driver·CUDA·컨테이너 계층 검증.
-- 실험: 호스트 nvidia-smi → GPU 컨테이너 → 같은 YOLO 데이터로 짧은 학습.
-- 증거: 버전, GPU 장치 출력, PyTorch CUDA 사용 여부, 학습 로그.
-- 성공 조건: 컨테이너 CUDA 실제 연산과 YOLO 학습 완료 증거. Device Plugin은 G2 전까지 필요 없음.
+- GPU/AMI/Driver/CUDA, 이미지·YOLO 모델·데이터, Epoch·Batch·seed, 캐시 상태와 시간 범위 기록.
+- CPU/RAM·GPU Util/VRAM·전송·로더/연산·Checkpoint 시간, Job/Node 이벤트 구분.
+- 정상 **B01 G1 YOLO 기준선**을 먼저 확보한다. 데이터 로더 정상 동작/단일 서버 지표와 K8s Job의 메트릭은 다른 계층.
+- 반복 실험 3회 이상을 지향하되 예산/시간 때문에 줄이면 사유 기록. 변화가 없거나 반대 결과가 나와도 그대로 기록.
+- S3로부터 로컬 복사 후 학습한 시간과 S3 객체를 학습 중 직접 읽는 시간은 **다른 입력 경로**. 실재하는 YOLO 직접 읽기 구현이 없는 한 동일 방식처럼 비교하지 않는다.
 
-## B02 — 데이터 입력 파이프라인 성능
+## G1 실험
 
-- 실제 자료: [AWS ML data loading best practices](references.md).
-- 가설: I/O 또는 CPU 디코딩이 병목이면 GPU가 유휴이고 데이터 공급 개선이 학습 시간을 단축할 수 있다.
-- 비교: S3→로컬 미리 복사 vs 직접 접근(도구/파일 경로 지원되는 경우), DataLoader workers 변경. 캐시 상태 별도.
-- 증거: GPU utilization, CPU utilization, 데이터 준비/학습시간, images/s, 스토리지 읽기 지연.
-- 반증: 전처리 시간이 미미하거나 GPU가 계산 포화이면 접근 방식 변경이 의미 없을 수 있음.
+### B01 — NVIDIA Driver/컨테이너/YOLO 계층 검증
+`nvidia-smi` → GPU 컨테이너 → `torch.cuda` 실제 계산 → YOLO 학습. 단계별 정상/실패 출력, 프로세스·GPU 메모리·비용 기록.
 
-## B03 — Checkpoint와 I/O
+### B02 — Linux 자원·S3/EBS 데이터 기준선
+`top/ps/free/df/iostat/journalctl` 등 시스템 계층 진단과 파일시스템/네트워크 읽기 흐름 관찰. 사용한 도구/OS에서 지원하는 옵션 실제 검증.
 
-- 가설: 저장이 동기적으로 수행되고 저장소가 느리면 학습 중 GPU 유휴 구간 증가.
-- 비교: 서로 다른 정상 저장 간격/위치. 한 번의 저장시간·Epoch당 오버헤드 측정.
-- 증거: 실제 파일 크기, 저장/업로드 시간, 종료 후 파일 정상성, 앱 수준 resume.
-- 한계: 대규모 NFS RPC 병목을 EBS/S3 단일 GPU 실험으로 동일 재현했다고 주장하지 않음.
+### B03 — 단일 서버 관측·성능 구간
+nvidia-smi/DCGM+호스트 CPU·디스크 지표→Prometheus/Grafana; 데이터 준비/전처리/학습/저장시간 분해. GPU Util 낮음이 입력 병목인지 실제 계측.
 
-## F01 — CUDA GPU OOM (통제된 조건)
+### F01 — GPU CUDA OOM
+Batch 상승 시 VRAM 증가/실패 로그와 CPU Linux OOM 구분. 안전하게 Batch 정상화 후 학습 재실행. **통제 실패**이며 자연 고객 사고가 아님.
 
-- 가설: 동일 모델·해상도에서 Batch Size 상승은 Activation 메모리 수요를 늘릴 수 있음.
-- 증거: VRAM 추세, CUDA OOM 로그, CPU RAM OOM Killer 여부 비교.
-- 복구: Batch 감소 후 정상 학습 검증. 강제 OOM이 실제 고객 장애는 아님.
+### T01 — AWS 데이터 로딩 개선 실험
+[AWS 실제 성능 실험](references.md) 참고. 02-03/03-03에서 정한 정상 기준선과, CPU Worker/캐시/입력 경로를 통제 변경한 반복 실행을 비교. 처리량·Epoch 시간 개선을 가정하지 않는다.
 
-## F02 — GPU 등록·컨테이너 런타임 진단
+## G2 실험
 
-- 실제 자료: [NVIDIA GPU Operator/Device Plugin](references.md), 클라우드 GPU 드라이버 설치 사고.
-- 안전한 실험: 호스트/컨테이너 GPU 표시 차이, Device Plugin 설치·설정 상태에 따른 `nvidia.com/gpu` 등록 여부 관찰.
-- 진단: GPU 인스턴스/Driver → 호스트 nvidia-smi → Toolkit/Runtime → Device Plugin → kubelet Capacity/Allocatable → Pod Events.
-- 금지: 물리 하드웨어 고장/Xid 강제 유도 또는 무분별한 Driver 파괴.
+### K01 — GPU Node·Job 정상 배치
+GPU Worker 2대의 `nvidia.com/gpu` 보고와 동일 YOLO Job 실행. Job 3개 제출하여 2개 실행·3번째 대기 후 반환 관측. Node Ready ≠ CUDA 성공.
 
-## F03 — GPU Worker 중단·Job 복구
+### F02 — GPU 자원 인식 진단
+NVIDIA Device Plugin, Container Runtime, 드라이버, kubelet/Pod Events를 계층별 관찰. 통제된 Plugin 구성 변경 가능하되 드라이버 파괴/물리 고장 유도 금지.
 
-- 가설: Node 중단 시 Pod/Job은 정책에 따라 재실행될 수 있지만 GPU 용량 확보와 YOLO Checkpoint 복구는 별도.
-- 실험: 격리된 Worker 통제 중단; Kubernetes 이벤트·노드 교체·GPU 재등록과 YOLO resume 동작 추적.
-- 증거: 장애 시각, Node NotReady, Job 상태, GPU 용량 회복 시각, 재학습량·복구시간.
-- 반증: 남는 GPU가 없으면 Job Pending이 지속될 수 있음. 운영 가용성을 자동 보장하지 않음.
+### F03 — GPU Worker 중단·재실행
+분리된 GPU Worker를 통제 종료. Node 인지·GPU 용량·Job 재생성·사용자 학습 resume(Checkpoint 복원)은 별도 관측. **남는 GPU 없으면 즉시 실행되지 않을 수 있음**.
 
-## S01 — 기본 GPU Job 대기와 선택적 Kueue 비교
-
-- GPU 2개에서 Job 3개 제출, GPU 반환 전후 Pending/Running 및 배치 시간 기록.
-- 기본 Scheduler의 `Pod Pending`과 Kueue 사용 시 `Workload not admitted`는 다른 단계.
-- **Kueue 도입은 도입 이유를 실험으로 확인했을 때만** 선택 수행; Borrowing/Preemption은 필수 범위가 아니다.
-
-## 보고서 형식
+## 공통 결과 템플릿
 
 ```text
-실험 ID / 실제 레퍼런스 유형(운영 사고·성능 실험·공식 가이드)
-목적·가설·반증 조건
-버전/하드웨어/데이터/설정/캐시 상태/반복 횟수
-사전 기준선 및 예상(실측과 구분)
-실행 명령/실제 로그·메트릭/시간별 이벤트
-원인 분석/조치/재측정
-한계/실제 운영 사고와 실험 주입의 차이
-GPU·EKS·스토리지 비용/잔여 리소스
+참조 근거 URL/유형(실제 사고, 실제 성능 실험, 공식 가이드)
+Lab·실험 ID / 하드웨어·AWS 환경·모델·데이터·버전
+가설/반증 조건/정상 기준선/변경 변수
+실행 시간·반복 횟수·실측/로그/메트릭·타임라인
+원인·조치·재검증/개선 또는 미개선
+한계(공개 사례와 직접 재현의 차이)
+인프라 생성·종료·잔여 비용
 ```
-
-[커리큘럼](curriculum.md) · [사례 출처](references.md) · [운영 안전](operations.md)
