@@ -17,7 +17,7 @@
 
 - [x] GPU G/VT On-Demand 쿼터 8 vCPU 승인·적용 확인 (리전: 서울)
 - [ ] EC2 인스턴스 타입·AZ 가용 여부·CPU/RAM/VRAM·현재 단가 점검
-- [ ] 사용할 Linux AMI·NVIDIA Driver/CUDA·Toolkit·컨테이너·YOLO 이미지 버전 지원 확인
+- [ ] 사용할 Linux AMI·NVIDIA Driver/CUDA·Toolkit·컨테이너·YOLO 이미지 버전 지원 확인. **EKS AL2023 NVIDIA AMI는 Plugin 별도 설치, Bottlerocket NVIDIA AMI는 Plugin 내장** 여부 구분
 - [ ] G1 또는 G2의 비용 견적 (EBS/NAT/인증/CloudWatch/S3 포함)·예산·실습 시간 설정
 - [ ] 실제 실행 명령, 데이터·Checkpoint 보존 경로, 안전한 복구·삭제 절차 준비
 - [ ] **G1 단일 GPU EC2부터 Terraform으로 생성**하도록 코드·state·destroy 경로를 사전 준비. Terraform state에 자격 증명 저장/공개 금지
