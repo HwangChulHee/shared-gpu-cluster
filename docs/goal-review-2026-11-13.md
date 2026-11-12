@@ -49,3 +49,14 @@
 - **재현성:** GPU 비용 세션 분리, 사후 결과물 보존, 실제 잔여 과금 점검.
 
 [현재 커리큘럼](curriculum.md) · [실제 진도](../learning/progress.md) · [실행 비용 정책](operations.md)
+
+## 추가 독립 검증 (2026-11-13)
+
+공식 AWS EKS 문서를 대조하면서 이전 검토에 빠졌던 **AMI별 GPU Device Plugin 기본 탑재 차이**를 확인해 교정했습니다.
+
+- **EKS AL2023 NVIDIA AMI:** Driver/Toolkit 포함, NVIDIA Device Plugin은 별도 설치가 필요함.
+- **EKS Bottlerocket NVIDIA AMI:** Driver/Toolkit/Device Plugin 포함. GPU Operator의 중복 설치를 피해야 함.
+- [AWS EKS NVIDIA AMI 비교](https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-optimized-ami.html) · [GPU Device Plugin 가이드](https://docs.aws.amazon.com/eks/latest/userguide/device-management-nvidia-dra-device-plugin.html)
+- Lab 01-02는 **GPU 실행 전 설계·비용 검토**이므로 실제 GPU 실측을 완료 요건으로 요구하던 모순을 제거함.
+
+**판단:** 커리큘럼 21개를 추가로 늘리거나 EKS를 다시 앞쪽으로 옮길 근거는 없음. 실제 구축 전 고정해야 할 사항은 AMI 유형, OS/Driver/컨테이너 호환성, GPU 인스턴스/AZ 단가 및 용량, G1 최소 Terraform·destroy 경로, 모델·데이터셋 버전이다. 지금까지 검증은 **문서와 공식 기술 근거 검토**이며 실제 AWS 인프라 구축 성공을 증명하지 않는다.
