@@ -14,7 +14,7 @@
 
 - 서울 G/VT On-Demand **8 vCPU 승인 및 실제 적용 확인**. 인스턴스 생성 가능/무료 사용을 의미하지 않는다.
 - 먼저 실제 AZ 용량, GPU 인스턴스 가격, AMI·Driver·Container Toolkit/YOLO 호환성, CPU/RAM, EBS/S3/NAT/EKS/IPv4 비용, 생성·삭제 계획을 확인한다.
-- G1 단일 EC2 GPU 서버는 Phase 01–03에, G2 EKS GPU Worker 2대는 Phase 04–05에 수행. **한꺼번에 가동할 필요 없음**.
+- G1 단일 EC2는 Phase 01–03 **및 06-01/06-02**, G2 EKS GPU Worker 2대는 Phase 04–05 **및 06-03/06-04**에 수행한다. 번호순 재구축 대신 GPU 과금 세션별로 실습을 묶는다.
 - GPU 자원은 이론과 로컬 코드·스크립트 준비를 끝낸 후 짧게 가동하며, 실제 결과 보존→destroy→잔여 과금 확인한다.
 - 통제된 OOM/Plugin/Worker 중단은 자연 운영 사고가 아니라 **의도한 실험**임을 명시. 하드웨어 손상 금지.
 
