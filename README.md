@@ -47,6 +47,7 @@ Team A: Gemma 4 Chat UI       Team B: YOLO Training UI      Team C: XGBoost Anal
 
 - [학습 및 구현 커리큘럼 — 7 Phase / 29 Lab](docs/curriculum.md)
 - [29개 Lab별 학습 교안·실습 과제](docs/labs/README.md)
+- [GPT와 함께하는 대화형 학습 가이드](learning/GPT_GUIDE.md)
 - [학습 진도·이해도 기록](learning/progress.md)
 - [섹션별 평가 기준 및 기록 방법](learning/README.md)
 - [아키텍처·설계 결정 및 미결정 사항](docs/architecture.md)
