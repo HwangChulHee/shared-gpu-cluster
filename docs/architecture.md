@@ -69,6 +69,15 @@
 | IaC | Terraform | AWS 생성·삭제 및 구성 재현 |
 | Demo | React/Vite + FastAPI | 복잡한 제품 개발 없이 사용자 워크로드 재현 |
 
+## Gemma 추론 모델 선택 (2026-11-12 계획)
+
+- **기본:** `google/gemma-4-E4B-it-qat-w4a16-ct` — 공식 4비트 QAT(W4A16) 가중치 + vLLM. **저비용 대체:** `google/gemma-4-E2B-it-qat-w4a16-ct`.
+- 직접 양자화하지 않고 공식 QAT 가중치를 사용한다. vLLM 런타임에서의 실제 메모리 소비량과 지원 GPU/드라이버는 **G1 실행 검증 전까지 미확정**.
+- Google의 Q4_0 메모리 표(예: E4B 4.5GB)는 vLLM W4A16 메모리와 같은 측정 기준이 아니므로, GPU 최소 VRAM으로 단정하지 않는다. KV Cache·동시성·메모리 여유를 포함한다.
+- **GPU 인스턴스 후보:** `g6.xlarge`(L4 전체 GPU) 우선 검증; 더 저렴한 `g4dn.xlarge`(T4 전체 GPU)는 최신 vLLM 및 Gemma 4 QAT 호환성 검증 시에만 대체. `g6f` 계열은 분할 GPU라 기본 프로젝트 범위 밖.
+- G2는 **전체 GPU 하나씩 장착한 서로 다른 Worker 두 대**를 유지하며 Gemma 경량화가 전체 GPU 분할 사용을 의미하지는 않는다.
+- 근거: https://gemma.ai/get-started/qat/ · https://gemma.ai/deployment/vllm/ · https://github.com/vllm-project/recipes/blob/main/Google/Gemma4.md
+
 ## 확인이 필요한 설계 결정
 
 - AWS 리전·AZ별 EC2 GPU 인스턴스 사용 가능 여부 및 계정 vCPU/GPU 관련 쿼터
