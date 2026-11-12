@@ -65,7 +65,7 @@
 2. 초기 후보 `g6.xlarge` L4 GPU 1개·4 vCPU; Seoul G/VT On-Demand **8 vCPU 승인·콘솔 API 적용 확인**. 가격·AZ 가용성과 호스트 RAM 한도는 세션 전 별도 확인한다.
 3. GPU 노드 증설 전에 CPU/디스크/네트워크 입력 병목인지 먼저 계측한다.
 4. S3에 개별 이미지 즉시 읽기와 EBS 로컬 파일 접근은 데이터 공급 방식이 다르므로 직접 비교 시 입력 경로의 실제 구현을 명시한다.
-5. AMI 포함 드라이버/Toolkit과 GPU Operator 설치 책임 중복 금지. 버전·지원 상태는 실습 시 확인한다.
+5. **EKS NVIDIA AMI 구분:** AL2023 NVIDIA AMI에는 Driver/Container Toolkit이 포함되지만 NVIDIA Device Plugin은 별도로 배포해야 한다. Bottlerocket NVIDIA AMI에는 Device Plugin도 포함된다. 선택한 AMI에 맞게 GPU Operator/Plugin 설치 중복을 피하고 버전·지원 상태를 실습 시 확인한다. [AWS 공식 문서](https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-optimized-ami.html).
 6. 실습 후 EC2/EKS/EBS/NAT/ENI/IPv4/S3 등 과금 리소스를 점검한다.
 
 [커리큘럼](curriculum.md) · [운영 비용](operations.md) · [실험](test-plan.md)
