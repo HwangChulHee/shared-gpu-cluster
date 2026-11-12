@@ -61,7 +61,7 @@
 |---|---|---|
 | [04-01 클러스터 네트워크·권한 설계](labs/04-01.md) | VPC/Subnet, EKS API/노드, IAM, S3/ECR 접근 | L/O / Terraform plan·경로표 |
 | [04-02 Terraform EKS·GPU Worker](labs/04-02.md) | CPU 시스템 Node Group + GPU Worker 2대 | L+G2 / 실제 Node/EC2/비용 확인 |
-| [04-03 Device Plugin·GPU Job](labs/04-03.md) | nvidia.com/gpu 등록·할당, 동일 YOLO Job 재배포 | G2 / Capacity·Pod Events·학습 출력 |
+| [04-03 Device Plugin·GPU Job](labs/04-03.md) | AMI별 내장·별도 Plugin 구분, nvidia.com/gpu 등록·할당, 동일 YOLO Job 재배포 | G2 / Plugin 중복 없는 구성·Capacity·Pod Events·학습 출력 |
 
 **완료 조건:** G1에서 검증한 YOLO 이미지·데이터·운영 절차를 G2에서 재현하고 변경점을 설명.
 
