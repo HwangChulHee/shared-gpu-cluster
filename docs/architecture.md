@@ -1,62 +1,71 @@
-# AI/GPU 인프라 아키텍처 — 계획
+# AI/GPU 인프라 아키텍처 — Linux 서버에서 클러스터로
 
-## 실무 문제 정의
+> **가상 AI 연구팀 운영 요구사항**을 바탕으로 한 설계. AWS GPU 실행/성능/장애 검증은 아직 미실행.
 
-여러 연구자가 NVIDIA GPU에서 이미지 학습을 실행하는 환경을 AWS EKS에 구축한다. 인프라 엔지니어의 책임은 GPU 장치/소프트웨어/컨테이너가 안정적으로 동작하도록 하고, CPU·데이터·스토리지 병목을 관측하며, 실패 시 로그와 메트릭으로 원인을 진단하는 것이다.
-
-## 논리 구성
+## 1. 먼저 운영할 단일 Linux GPU 서버 (G1)
 
 ```text
-YOLO training image (pinned version)     Observability
-             |                          DCGM exporter
-       Kubernetes Job                        |
-             |                       Prometheus / Grafana
-      EKS control plane                      |
-             |                     kube-state-metrics / Events
-      kube-scheduler                         |
-         /          \                        |
- GPU Worker A    GPU Worker B --------------+
- NVIDIA GPU x1  NVIDIA GPU x1
- Driver/CUDA     Driver/CUDA
- Container RT    Container RT
-         \           /
-         S3 datasets/checkpoints/results
-            ↕ (download/cache)
-        EBS / node local cache
+                   [운영자: SSH/SSM, Linux 진단]
+                                 |
+                   [EC2 GPU Linux: g6.xlarge 후보]
+                    ├─ NVIDIA Driver / NVML
+                    ├─ Container Runtime + NVIDIA Container Toolkit
+                    ├─ PyTorch CUDA / YOLO Training
+                    ├─ CPU/RAM/process/log/disk I/O
+                    ├─ EBS local data/cache ← IAM + VPC/SG → S3 datasets
+                    └─ DCGM exporter / node exporter
+                                      |
+                               Prometheus + Grafana
 ```
 
-- **G1 단일 GPU EC2**에서 호스트 nvidia-smi → GPU 컨테이너 → YOLO 단일 학습을 먼저 검증한다. 이 단계에서는 Kubernetes Device Plugin이 필요 없다.
-- **G2 EKS**에서 노드 별 GPU Device Plugin이 kubelet에 `nvidia.com/gpu`를 등록하면, Scheduler가 GPU 요청 Pod를 배치한다.
-- GPU 사용권(할당)과 GPU 연산 사용률(Utilization)은 다르다. `Node Ready`, `nvidia.com/gpu`, 컨테이너 CUDA 성공, 모델 학습 성공도 서로 다른 검증 단계다.
-- 스토리지: 원본 S3, 필요 시 EBS에 데이터 로컬 복사/캐시. Checkpoint는 작업 코드가 생성하고 보존 정책에 따라 S3로 업로드한다.
-- 네트워크: GPU Worker가 이미지 레지스트리, S3, EKS API와 통신하는 경로·IAM·SG·NAT/VPC Endpoint 비용을 검토한다.
-- 모니터링: 호스트 NVML/`nvidia-smi`, DCGM exporter, Prometheus/Grafana, CPU/디스크/K8s Events. GPU Util 지표만으로 원인 단정 금지.
+서버 한 대에서 **GPU 장치 접근·컨테이너 실행·학습·데이터 I/O·메트릭**을 끝까지 확인한다. 이때 Kubernetes Device Plugin은 필요하지 않다. 학습 결과/Checkpoint는 워크로드가 저장하고 S3에 보존할 수 있으며, 단순 EC2 재실행이 학습의 자동 복구를 보장하지 않는다.
 
-## 우선순위와 선택
+## 2. 동일한 실행 환경을 EKS로 확장 (G2)
 
-| 영역 | 필수 설계 | 의도적 비포함/후순위 |
+```text
+  [같은 YOLO 이미지/데이터/학습 설정]
+                       |
+                 Kubernetes Job
+                       |
+                 EKS API / Scheduler
+                       |
+                 GPU Device Plugin
+                       |
+          ┌────────────┴────────────┐
+      GPU Worker A              GPU Worker B
+      Linux/Driver/CUDA         Linux/Driver/CUDA
+      NVIDIA GPU x1             NVIDIA GPU x1
+          └────────────┬────────────┘
+                       |
+                S3 data/results
+                       |
+       DCGM + node metrics + Pod/Job state → Prometheus/Grafana
+```
+
+- G1과 G2는 **대체 환경**이며 비용 절약을 위해 동시에 운영할 필요 없다.
+- G2에서 새로 추가되는 것은 kubelet의 `nvidia.com/gpu` 리소스 등록, Scheduler/Job·노드 생명주기, Pod/Job 메트릭이다. G1의 Linux Driver/Toolkit 지식이 그대로 필요하다.
+- GPU 할당과 GPU 연산 사용률은 다르다. `Node Ready`·GPU Capacity·CUDA 계산·YOLO 학습 성공은 각각 다른 수준의 검증이다.
+- GPU 2대는 **동시 작업·대기·노드 단위 장애**의 최소 랩 조건이며 다중 AZ 고가용성·무중단을 보장하지 않는다.
+- Kueue admission/borrowing/preemption은 실무 사례 참고·선택 심화. 기본 `nvidia.com/gpu` 스케줄링으로 필수 실습 수행.
+
+## 계층별 운영 책임
+
+| 영역 | G1: Linux 서버 | G2: Kubernetes 확장 |
 |---|---|---|
-| GPU 운영 | 드라이버·런타임·CUDA 호환성 검증, YOLO 학습 | 여러 모델 서비스 |
-| Kubernetes | EKS·별도 GPU Worker 2대·Device Plugin·Job | 커스텀 GPU 스케줄러 |
-| 자원 공유 | 기본 `nvidia.com/gpu` 정수 할당과 Pending 관측 | MIG/Time-Slicing, Kueue 고급 정책 |
-| 데이터 | S3·EBS/캐시 비교, CPU DataLoader, Checkpoint | 초기부터 EFS/고성능 분산 파일시스템 의무화 |
-| 관측·진단 | GPU·CPU·I/O·로그·Events·RCA | 실제 물리 수리, InfiniBand 장비 실험 |
-| 사용자 인터페이스 | kubectl/Job manifest/스크립트 | React UI, FastAPI Job 서비스 |
+| GPU/OS | NVIDIA Driver·NVML·로그·CPU/RAM | 같은 GPU/OS 계층이 각 Worker에 존재 |
+| 컨테이너 | NVIDIA Container Toolkit·CUDA 이미지 | containerd·GPU Runtime 설정·Device Plugin |
+| 작업 | 직접 Docker/PyTorch·YOLO 실행 | Kubernetes Job·Pod·Scheduler |
+| 스토리지·네트워크 | EC2 IAM, SG, EBS, S3·캐시 | Node/Pod 접근 경로·IAM·SG·Pod 네트워킹 추가 |
+| 관측 | nvidia-smi/DCGM + 호스트 지표 | 위 지표 + kube-state-metrics/Events |
+| 복구 | 작업 재실행·Checkpoint 수동/스크립트 재개 | 노드/Job 재실행과 앱 Resume는 분리 |
 
-## 용량·비용 제약
+## 의사결정·제약
 
-- 초기 목표 GPU는 **L4 1개/노드** (`g6.xlarge` 후보), G1 1대 → G2 서로 다른 노드 2대. 운영 전 서울 리전 쿼터/AZ/AMI/가격을 재확인한다.
-- `g6.xlarge`는 GPU VRAM뿐 아니라 **호스트 RAM/CPU**가 제한될 수 있다. YOLO 데이터 로딩이 느리면 GPU만 증설하지 않는다.
-- EKS Control Plane, CPU 시스템 노드, NAT, EBS, S3, IPv4, 데이터 전송 등의 별도 요금이 있다.
-- 실제 GPU 4대·Slurm·대규모 분산 학습은 필수 목표가 아니다.
-- 단일 노드 장애 시 다른 GPU가 이미 점유 중이면 즉시 Job이 재배치된다고 보장할 수 없다.
+1. **온프레미스 대체 운영으로 과장하지 않는다.** EC2는 물리 GPU/PCIe 카드 교체, 펌웨어·냉각 등을 직접 다루지 않는다.
+2. 초기 후보 `g6.xlarge` L4 GPU 1개·4 vCPU; Seoul G/VT On-Demand **8 vCPU 승인·콘솔 API 적용 확인**. 가격·AZ 가용성과 호스트 RAM 한도는 세션 전 별도 확인한다.
+3. GPU 노드 증설 전에 CPU/디스크/네트워크 입력 병목인지 먼저 계측한다.
+4. S3에 개별 이미지 즉시 읽기와 EBS 로컬 파일 접근은 데이터 공급 방식이 다르므로 직접 비교 시 입력 경로의 실제 구현을 명시한다.
+5. AMI 포함 드라이버/Toolkit과 GPU Operator 설치 책임 중복 금지. 버전·지원 상태는 실습 시 확인한다.
+6. 실습 후 EC2/EKS/EBS/NAT/ENI/IPv4/S3 등 과금 리소스를 점검한다.
 
-## 설계 검증 필요사항
-
-1. 실제 GPU AMI/Driver/Toolkit 및 Device Plugin의 지원·중복 설치 관계.
-2. YOLO 이미지·데이터셋 버전 고정, 정확한 CPU·VRAM 요구량 실측.
-3. 데이터 I/O 방식 비교 시 캐시/워커 수/CPU 제한/이미지 수 같은 통제 변수 기록.
-4. EKS 노드 교체가 학습 상태 자동 복원을 의미하지 않는다는 점 검증.
-5. 관측 대시보드는 실제 인스턴스와 작업 단위를 연결할 수 있는지 확인.
-
-[커리큘럼](curriculum.md) · [테스트 계획](test-plan.md) · [참고 사례](references.md)
+[커리큘럼](curriculum.md) · [운영 비용](operations.md) · [실험](test-plan.md)
