@@ -29,11 +29,10 @@
                        |
                  EKS API / Scheduler
                        |
-                 GPU Device Plugin
-                       |
           ┌────────────┴────────────┐
       GPU Worker A              GPU Worker B
       Linux/Driver/CUDA         Linux/Driver/CUDA
+      GPU Device Plugin         GPU Device Plugin
       NVIDIA GPU x1             NVIDIA GPU x1
           └────────────┬────────────┘
                        |
@@ -43,6 +42,7 @@
 ```
 
 - G1과 G2는 **대체 환경**이며 비용 절약을 위해 동시에 운영할 필요 없다.
+- **정확한 역할:** Device Plugin은 각 GPU Worker에서 kubelet에 장치를 등록·할당하도록 돕고, **Scheduler가 Node Allocatable과 Pod 요청을 바탕으로 노드를 선택**한다. Device Plugin 자체가 중앙 스케줄러나 네트워크 홉이 아니다.
 - G2에서 새로 추가되는 것은 kubelet의 `nvidia.com/gpu` 리소스 등록, Scheduler/Job·노드 생명주기, Pod/Job 메트릭이다. G1의 Linux Driver/Toolkit 지식이 그대로 필요하다.
 - GPU 할당과 GPU 연산 사용률은 다르다. `Node Ready`·GPU Capacity·CUDA 계산·YOLO 학습 성공은 각각 다른 수준의 검증이다.
 - GPU 2대는 **동시 작업·대기·노드 단위 장애**의 최소 랩 조건이며 다중 AZ 고가용성·무중단을 보장하지 않는다.
