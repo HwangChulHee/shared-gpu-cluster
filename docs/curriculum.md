@@ -1,92 +1,89 @@
-# AI/GPU 인프라 구축·운영 커리큘럼
+# AI/GPU 인프라 운영 학습·실습 커리큘럼
 
-> **7 Phase / 21 Lab** · GPU 실행 전 이론과 비용 점검 · YOLO 단일 워크로드 · 실측 전 계획 문서
+> **2026-11-13 개편 · 7 Phase / 21 Lab**. Linux GPU 서버·시스템 운영이 본 과정이고 EKS는 그 환경을 확장하는 계층입니다. 모든 GPU 실습·장애 실험은 계획이며 실제 실행 여부는 [진도표](../learning/progress.md)를 따릅니다.
 
-## 목표와 범위
+## 프로젝트 목표
 
-AWS EKS 기반 GPU 학습 환경을 직접 구축하고 **Linux/GPU 소프트웨어, Kubernetes GPU 등록·배치, 스토리지·데이터 로딩, GPU 모니터링, 실제 사례를 참고한 운영 장애 진단**을 검증한다. GPU 공유·Kueue는 부차적인 선택 실험이며, 선점 스케줄러 최적화나 서비스 UI 개발은 목적이 아니다.
+가상의 AI 연구팀에게 GPU 학습 실행 환경을 제공한다는 요구사항을 바탕으로 **단일 NVIDIA GPU Linux 서버의 구성·데이터 경로·운영 메트릭을 먼저 검증**한다. 이후 이를 EKS GPU 클러스터로 확장해 Job 및 Worker 운영을 검증하고, 실제 공개 사례를 근거로 성능·장애를 분석한다. YOLO는 **인프라 검증용 단일 워크로드**다.
 
-- 학습: 한 번에 **개념 1개 → 서술형 1문제 → 답변·교정 → 다음 개념/단계**.
-- 증거: 정상 기준선, 입력·버전·환경, 실제 로그/메트릭, 반복 측정, 반증 조건, 실험 한계.
-- 환경: **L** 로컬/이론, **G1** GPU EC2 1대, **G2** EKS + 별도 GPU Worker 2대, **O** 오프라인 분석.
-- 클라우드 비용: 승인되지 않은 GPU 쿼터/인스턴스 가용성을 가정하지 않는다. 세션별 GPU 인스턴스, EKS, CPU 노드, EBS, NAT, EFS, LB, S3 비용을 확인한다. 구축·측정 후 리소스 삭제 및 잔여 과금 검증.
-- 프로젝트 산출물: Terraform·Job/애드온 매니페스트·YOLO 컨테이너·데이터/저장 정책·GPU 지표·성능 비교·RCA/Runbook.
-- GPU 3~4대 확장, Slurm, RDMA·InfiniBand 실제 실습, MIG, 임의 사용자 실행 API, Gemma/XGBoost는 필수 범위 제외.
+- 환경: **L** 로컬·이론, **G1** 단일 GPU EC2, **G2** EKS + GPU Worker 2대, **O** 오프라인 분석. G1/G2는 동시에 켤 필요가 없다.
+- 비용·안전: 서울 On-Demand G/VT 8 vCPU **승인·적용 확인**. 실행 전 AZ 가용성·AMI·리소스별 예상 과금과 삭제 경로 점검. 한 단계 이론·코드·실험표 준비 → 짧은 GPU 세션 → 측정 → 결과 보존 → destroy/잔여 과금 점검.
+- 학습: **개념 하나 → 서술형 질문 하나 → 답변·피드백 → 다음**; 기존 학습과 중복 시 진단에 필요한 새로운 요소만 배운다.
+- 검증: **정상 기준선 → 가설/반증 조건 → 실제 계측 → 비교 → 한계·복구**. 공개된 자연 발생 운영 사고와 의도적 장애 주입을 구분한다.
+- 필수에서 제외: 웹 UI/API, Gemma/XGBoost, Slurm, MIG, 분산 학습, Kueue 고급 자원 공유 정책.
 
-## Phase 01 — GPU 기초·실행 환경 (3 Lab)
+## Phase 01 — GPU 컴퓨팅과 단일 서버 시작 (3 Lab)
 
-| Lab | 학습·실습 | 환경 / 완료 증거 |
+| Lab | 목표·실습 | 환경·완료 증거 |
 |---|---|---|
-| [01-01 GPU 컴퓨팅 기초](labs/01-01.md) | CPU/GPU, VRAM/RAM, PCIe, CUDA 및 병목 구분 | L / 서술형·진단 시나리오 |
-| [01-02 GPU 용량·쿼터·비용](labs/01-02.md) | GPU 사양, AWS 리전/AZ/쿼터, 온디맨드와 EKS 고정비, 종료 계획 | L/O / 실제 조회·예산 게이트 |
-| [01-03 NVIDIA 스택과 YOLO](labs/01-03.md) | 호스트 Driver·NVML → Toolkit·CUDA 컨테이너 → PyTorch·YOLO 학습·VRAM | L+G1 / 호스트/컨테이너 출력·YOLO 학습 로그 |
+| [01-01 GPU 컴퓨팅 기초](labs/01-01.md) | CPU/GPU, VRAM/RAM, PCIe, 병목 이해 | L / 과거 이론·시나리오 평가 완료 |
+| [01-02 GPU 용량·AWS 비용·쿼터](labs/01-02.md) | GPU 인스턴스·AMI·사양·비용·종료 게이트 | L/O / 8 vCPU 적용 확인, 비용 견적은 미완료 |
+| [01-03 Linux NVIDIA 스택·YOLO 실행](labs/01-03.md) | Driver → Container Toolkit → CUDA/PyTorch → YOLO | L+G1 / GPU 컨테이너·실제 학습 출력 |
 
-**완료 기준:** 단일 GPU에서 재현 가능한 YOLO 학습과 하드웨어/컨테이너 GPU 사용 증명. 이론만 완료했다면 GPU 대기 상태 유지.
+**완료 조건:** G1에서 GPU 호스트/컨테이너/PyTorch/YOLO 각각 확인. 이론 완료와 GPU 실행 완료를 구분.
 
-## Phase 02 — AWS GPU Kubernetes 인프라 (3 Lab)
+## Phase 02 — Linux GPU 서버·데이터 운영 (3 Lab)
 
-| Lab | 학습·실습 | 환경 / 완료 증거 |
+| Lab | 목표·실습 | 환경·완료 증거 |
 |---|---|---|
-| [02-01 네트워크·IAM·설계](labs/02-01.md) | VPC, 사설 서브넷/경로, SG, GPU 노드 IAM과 S3 권한 | L/O / 설계·Terraform plan |
-| [02-02 Terraform·EKS·GPU Worker](labs/02-02.md) | CPU 시스템 노드, GPU Worker 2대, AMI/비용/수명주기 | L+G2 / 실제 노드 목록·인스턴스 구성 |
-| [02-03 GPU 등록·Job 배치](labs/02-03.md) | GPU Device Plugin → kubelet `nvidia.com/gpu`, GPU Pod·Events | G2 / Capacity·Allocatable·실제 CUDA Job |
+| [02-01 Linux 시스템 운영·진단](labs/02-01.md) | 프로세스·CPU·RAM·디스크·로그·권한 및 실행 환경 | L+G1 / 프로세스·메모리·I/O 진단 근거 |
+| [02-02 스토리지·네트워크 데이터 경로](labs/02-02.md) | VPC/SG/IAM, S3↔EBS/캐시, 다운로드·접근 경로 | L+G1 / 데이터 경로도·전송·권한 검증 |
+| [02-03 YOLO 데이터 로더·Checkpoint](labs/02-03.md) | 데이터 읽기/전처리·기본 정상 기준선, 로컬/S3 저장·resume | L+G1 / 입력 단계·체크포인트·재개 증거 |
 
-**완료 기준:** GPU Worker 2대에서 GPU 리소스 등록·YOLO Job 실행, 실패 시 어느 계층인지 구분.
+**완료 조건:** GPU 서버의 CPU/RAM/스토리지·네트워크가 학습에 미치는 영향을 설명하고 학습 상태를 서버 외부에 보존.
 
-## Phase 03 — 학습 데이터·스토리지 (3 Lab)
+## Phase 03 — 단일 서버 관측·성능 (3 Lab)
 
-| Lab | 학습·실습 | 환경 / 완료 증거 |
+| Lab | 목표·실습 | 환경·완료 증거 |
 |---|---|---|
-| [03-01 데이터 저장 경로](labs/03-01.md) | S3 원본·EBS/로컬 캐시·S3 접근 권한, 접근 패턴 | L+G1 / 데이터 흐름·다운로드 시간 |
-| [03-02 DataLoader·CPU 전처리](labs/03-02.md) | 디코딩·증강·workers·배치, S3 접근 방식과 처리량 | G1 / GPU Util·images/s·epoch 시간 비교 |
-| [03-03 Checkpoint·I/O](labs/03-03.md) | 저장 주기, 쓰기 지연, 외부 보존, 앱 수준 resume | G1 / 저장시간·중단 후 복원 증거 |
+| [03-01 NVIDIA GPU 관측](labs/03-01.md) | nvidia-smi/NVML·DCGM, GPU Util/VRAM/전력 | G1 / 실제 GPU 측정 |
+| [03-02 단일 GPU 서버 모니터링](labs/03-02.md) | DCGM exporter + 호스트 metrics → Prometheus/Grafana | L+G1 / 단일 서버 대시보드 |
+| [03-03 학습 성능 측정·병목 분석](labs/03-03.md) | CPU 준비/GPU 연산/I/O/체크포인트 구간·반복 측정 | G1/O / 기준선·시간 분해 |
 
-**완료 기준:** 같은 YOLO/데이터로 I/O 조건을 비교하고 병목 여부 판단. Checkpoint는 워크로드 책임, 플랫폼은 스토리지·종료/실행 환경 제공.
+**완료 조건:** **EKS 없이** 단일 Linux GPU 서버의 데이터/연산/시스템 지표로 원인 가설을 세울 수 있음.
 
-## Phase 04 — GPU 관측·성능 분석 (3 Lab)
+## Phase 04 — AWS EKS로 GPU 확장 (3 Lab)
 
-| Lab | 학습·실습 | 환경 / 완료 증거 |
+| Lab | 목표·실습 | 환경·완료 증거 |
 |---|---|---|
-| [04-01 NVML·DCGM 지표](labs/04-01.md) | GPU Util, VRAM, 전력·온도, 측정 의미·한계 | G1 / 실제 장치 지표 |
-| [04-02 Prometheus·Grafana](labs/04-02.md) | DCGM exporter, kube-state-metrics, Job·노드 상태 연결 | G2 / 대시보드·쿼리 근거 |
-| [04-03 종단 성능 기준선](labs/04-03.md) | 데이터 로딩·GPU 연산·Checkpoint 시간 분해, 반복·통제 변수 | G1/G2 / 측정표·그래프 |
+| [04-01 클러스터 네트워크·권한 설계](labs/04-01.md) | VPC/Subnet, EKS API/노드, IAM, S3/ECR 접근 | L/O / Terraform plan·경로표 |
+| [04-02 Terraform EKS·GPU Worker](labs/04-02.md) | CPU 시스템 Node Group + GPU Worker 2대 | L+G2 / 실제 Node/EC2/비용 확인 |
+| [04-03 Device Plugin·GPU Job](labs/04-03.md) | nvidia.com/gpu 등록·할당, 동일 YOLO Job 재배포 | G2 / Capacity·Pod Events·학습 출력 |
 
-**완료 기준:** 느린 학습의 원인을 GPU/CPU/스토리지 계층으로 분해하고 검증.
+**완료 조건:** G1에서 검증한 YOLO 이미지·데이터·운영 절차를 G2에서 재현하고 변경점을 설명.
 
 ## Phase 05 — GPU 클러스터 운영 (3 Lab)
 
-| Lab | 학습·실습 | 환경 / 완료 증거 |
+| Lab | 목표·실습 | 환경·완료 증거 |
 |---|---|---|
-| [05-01 GPU Job 스케줄링](labs/05-01.md) | 요청/할당, Pod Pending, Job lifecycle, 자원 반환 | G2 / 이벤트·배치 증거 |
-| [05-02 GPU 노드 증감·운영](labs/05-02.md) | Node Group 규모, 노드 준비·배치 지연, 비용·할당량 구분 | L+G2 / 증감·시간·비용 기록 |
-| [05-03 Kueue 선택 비교](labs/05-03.md) | 기본 Scheduler의 한계 분석 → 필요 시 Kueue Admission/Quota | L+선택 G2 / 도입 근거·비교 |
+| [05-01 GPU Job 스케줄링](labs/05-01.md) | GPU 점유·대기·반환, Pod Pending·Job lifecycle | G2 / GPU 2대에 Job 3개, 이벤트 타임라인 |
+| [05-02 GPU Worker 증감·복구 준비](labs/05-02.md) | 노드 증설/축소, 배치 지연, 클러스터 자원·비용 | L+G2 / Node/Pod/가용 GPU 변화 |
+| [05-03 GPU 클러스터 관측](labs/05-03.md) | 단일 서버 모니터링을 Node/Pod/Job·Events로 확장 | G2 / 대시보드·진단 흐름 |
 
-**완료 기준:** 기본 GPU 클러스터를 운영하고 자원 미배치 원인을 설명. Kueue 구현은 필수 통과 조건이 아님.
+**완료 조건:** GPU 미할당·노드 부족 등 클러스터의 기본 운영 문제를 구별하고 관측 가능. **Kueue는 [선택 심화](labs/05-03.md#선택-심화--kueue)로만 다룸.**
 
-## Phase 06 — 실제 사례 기반 운영 검증 (4 Lab)
+## Phase 06 — 실제 사례 기반 검증 (4 Lab)
 
-| Lab | 참조하는 실무 문제 | 환경 / 완료 증거 |
+| Lab | 실제 운영 문제를 참고한 검증 | 환경·완료 증거 |
 |---|---|---|
-| [06-01 GPU OOM 분석](labs/06-01.md) | Batch/VRAM 증가로 CUDA OOM; CPU OOM과 구분 | G1 / 메모리 추세·로그·복구 |
-| [06-02 데이터 로딩 병목](labs/06-02.md) | AWS 이미지 데이터 공급 최적화 실험 | G1 / 동일 워크로드 대조·성능 |
-| [06-03 GPU 인식·런타임 문제](labs/06-03.md) | NVIDIA·클라우드 GPU 드라이버/Plugin 이슈 | L+G2 / 안전한 설정 오류·진단 |
-| [06-04 GPU Worker 중단·복구](labs/06-04.md) | Kubernetes Job 재시도와 학습 상태 복원 구분 | G2 / 장애 타임라인·RCA |
+| [06-01 GPU OOM 분석](labs/06-01.md) | Batch/Activation·VRAM 문제 vs Linux OOM | G1 / 증거·정상 복구 |
+| [06-02 데이터 로딩 병목 개선](labs/06-02.md) | AWS 데이터 공급 성능 실험 참고, 대조군 vs 튜닝 | G1 / 반복 측정·성능 비교 |
+| [06-03 GPU 인식·런타임 진단](labs/06-03.md) | NVIDIA/클라우드 장애 사례 참고, 안전한 설정 진단 | L+G2 / 계층별 로그 |
+| [06-04 Worker 중단·학습 복구](labs/06-04.md) | 노드 복구·GPU 등록·Job 재실행·YOLO resume 구분 | G2 / 타임라인·RCA |
 
-**완료 기준:** 실제 공개 출처와 **우리가 주입한 현상**을 분리 기재하며 적어도 3개 대표 실험에 증거·분석 남김. GPU 하드웨어 물리 고장·Xid 강제 유도 금지.
+**완료 조건:** 실제 원문·가설·주입 조건·측정·복구·한계를 분리. 실험 실패/미개선도 그대로 기록.
 
-## Phase 07 — 재현성·포트폴리오 (2 Lab)
+## Phase 07 — 재현성·운영 보고 (2 Lab)
 
-| Lab | 학습·실습 | 환경 / 완료 증거 |
+| Lab | 목표·실습 | 환경·완료 증거 |
 |---|---|---|
-| [07-01 인프라 재현·비용 정리](labs/07-01.md) | Terraform apply/destroy, state, 잔여 AWS 자원·비용 | L+G2/O / 재구축·종료 체크리스트 |
-| [07-02 운영 보고서·시연](labs/07-02.md) | 설계 근거, 실제 성능 개선/실패, Runbook·RCA·한계 | O / 증거 링크·재현 가이드 |
+| [07-01 Terraform 재현·과금 종료](labs/07-01.md) | G1/G2 생성·재구축·삭제·비용 확인 | L+G1/G2/O / IaC·체크리스트 |
+| [07-02 운영 보고서·Runbook·RCA](labs/07-02.md) | 설계 근거, 실측 결과, 운영 절차, 제약·한계 | O / 검증 가능한 링크 |
 
-## 기존 과정 이관
+## 이관·출처
 
-[기존 29개 Lab → 새 21개 Lab 대응표](migration-2026-11-12.md)를 확인한다. 기존 `learning/records/` 파일은 역사적 학습 기록으로 유지한다. 동일 번호라도 주제가 바뀌었으면 점수를 신규 Lab에 자동 이전하지 않는다.
+- [2026-11-13: EKS 중심 → Linux GPU 서버 우선 재배치](migration-2026-11-13.md)
+- [2026-11-12: 원래 29 Lab → 21 Lab](migration-2026-11-12.md)
+- [실제 사고·실험·공식 가이드 구별](references.md) · [실험 계획](test-plan.md) · [비용 원칙](operations.md) · [진도표](../learning/progress.md)
 
-## 근거와 안전
-
-- [실제 사례·공식 자료](references.md)에는 **사후 장애 보고서/실제 성능 실험/문서상 가능성**을 구분한다.
-- [테스트 계획](test-plan.md)에는 정상 대조군, 검증 가설, 반증 조건, 동일 GPU·데이터·YOLO 버전 통제가 있다.
-- [실습 안전·비용 게이트](operations.md), [대화형 학습 가이드](../learning/GPT_GUIDE.md) 준수.
+**기존 학습 평가 파일은 새 번호의 완료 증거로 자동 승계하지 않는다.**
