@@ -1,100 +1,62 @@
-# 아키텍처 및 설계 판단 (초안)
+# AI/GPU 인프라 아키텍처 — 계획
 
-## 요구사항
+## 실무 문제 정의
 
-1. 세 부서가 **물리 GPU 전체 단위**로 하나의 자원 풀을 공유
-2. 최소 두 개의 GPU가 서로 다른 Worker에 존재하여 동시 수행 및 노드 단위 장애 실험 가능
-3. Gemma 4 추론, YOLO 학습, XGBoost 분석을 실제 사용자 UI로 실행
-4. 팀별 작업·접근 제한, 자원 점유/대기/반환 관측
-5. 운영 메트릭, 로그, 재현 가능한 장애 실험 및 복구 증거
-6. 클라우드 실습 후 비용이 발생하는 리소스 제거
+여러 연구자가 NVIDIA GPU에서 이미지 학습을 실행하는 환경을 AWS EKS에 구축한다. 인프라 엔지니어의 책임은 GPU 장치/소프트웨어/컨테이너가 안정적으로 동작하도록 하고, CPU·데이터·스토리지 병목을 관측하며, 실패 시 로그와 메트릭으로 원인을 진단하는 것이다.
 
-## 논리 구성 — 사용자 데이터 경로와 클러스터 제어 경로 구분
+## 논리 구성
 
 ```text
-[Team A Chat UI]    [Team B YOLO UI]    [Team C XGBoost UI]
-         \                 |                    /
-                       React/Vite
-                           |
-                     FastAPI on CPU Node
-                     /             \
-     [DATA PATH: inference]     [CONTROL PATH: job creation]
-          |                            |
-   Gemma serving endpoint       Kubernetes API Server
-   on GPU Worker                (EKS managed control plane)
-          |                            |
-       Response                  Job/Pod desired state
-          |                            |
-   FastAPI → user          K8s Scheduler → GPU Worker 01/02
-                                        |
-                                   YOLO / XGBoost
-                                        |
-                           S3 job results / checkpoints
-                                        |
-                              FastAPI result lookup
-                                        |
-                                    user UI
-
-  CPU Node Group: FastAPI · supporting services · metrics
-  GPU Node Group: >= 2 separate NVIDIA GPU workers
-  GPU metrics: DCGM exporter → Prometheus → Grafana
-  Data assets: S3 first; EFS/CSI/cache evaluated later
+YOLO training image (pinned version)     Observability
+             |                          DCGM exporter
+       Kubernetes Job                        |
+             |                       Prometheus / Grafana
+      EKS control plane                      |
+             |                     kube-state-metrics / Events
+      kube-scheduler                         |
+         /          \                        |
+ GPU Worker A    GPU Worker B --------------+
+ NVIDIA GPU x1  NVIDIA GPU x1
+ Driver/CUDA     Driver/CUDA
+ Container RT    Container RT
+         \           /
+         S3 datasets/checkpoints/results
+            ↕ (download/cache)
+        EBS / node local cache
 ```
 
-- **실시간 데이터 경로:** 사용자 → FastAPI → 이미 실행 중인 Gemma 추론 서버 → 사용자.
-- **Job 제어 경로:** FastAPI가 제한된 Kubernetes API 권한으로 Job 생성 요청 → Control Plane의 컨트롤러/스케줄러가 실행 상태 조정 → GPU Worker에서 수행.
-- **결과 데이터 경로:** GPU 작업 → 지속 저장소(S3) → FastAPI 결과 조회 → 사용자. API Server를 모델 추론 데이터의 프록시로 사용하지 않는다.
-- Phase 02부터 최소한의 S3 결과/체크포인트 보존을 마련한다. Phase 05에서 EFS/CSI·스토리지 성능을 추가 검토한다.
-- 실험 세션별로 **Terraform 생성 → 애드온 및 Kubernetes 구성 적용 → 작업 실행 → 결과 보존 → 인프라 삭제** 순서를 재현한다.
+- **G1 단일 GPU EC2**에서 호스트 nvidia-smi → GPU 컨테이너 → YOLO 단일 학습을 먼저 검증한다. 이 단계에서는 Kubernetes Device Plugin이 필요 없다.
+- **G2 EKS**에서 노드 별 GPU Device Plugin이 kubelet에 `nvidia.com/gpu`를 등록하면, Scheduler가 GPU 요청 Pod를 배치한다.
+- GPU 사용권(할당)과 GPU 연산 사용률(Utilization)은 다르다. `Node Ready`, `nvidia.com/gpu`, 컨테이너 CUDA 성공, 모델 학습 성공도 서로 다른 검증 단계다.
+- 스토리지: 원본 S3, 필요 시 EBS에 데이터 로컬 복사/캐시. Checkpoint는 작업 코드가 생성하고 보존 정책에 따라 S3로 업로드한다.
+- 네트워크: GPU Worker가 이미지 레지스트리, S3, EKS API와 통신하는 경로·IAM·SG·NAT/VPC Endpoint 비용을 검토한다.
+- 모니터링: 호스트 NVML/`nvidia-smi`, DCGM exporter, Prometheus/Grafana, CPU/디스크/K8s Events. GPU Util 지표만으로 원인 단정 금지.
 
-## GPU 풀 공유의 의미
+## 우선순위와 선택
 
-- GPU 1개는 한 번에 하나의 전용 GPU 요청 Pod에 할당되는 기본 모델을 사용합니다.
-- GPU 2개의 공동 자원 풀에서 부서별 Job/워크로드가 할당·대기·반환합니다.
-- **MIG, Time-Slicing, MPS를 사용해 GPU 1개를 동시에 분할 공유하는 것과 다릅니다.**
-- Persistent Gemma 추론 서버는 GPU를 상시 점유할 수 있으므로, 배치 Job과 가용성·우선순위 정책을 별도로 분석합니다.
-- ResourceQuota는 네임스페이스별 허용량을 제한하지만, 자동으로 팀 간 여유 자원 대여·공정 큐를 구현하지는 않습니다. 필요 시 Kueue를 검토합니다.
-
-## 기술 선택 (검증 전)
-
-| 영역 | 현재 방향 | 선택 이유 / 확인할 사항 |
+| 영역 | 필수 설계 | 의도적 비포함/후순위 |
 |---|---|---|
-| Cloud | AWS | 익숙한 VPC/IAM/EC2 기반으로 실험·자동화 |
-| Kubernetes | EKS | 관리형 Control Plane + Worker 운영 실험 |
-| GPU | 서로 다른 EC2 GPU Worker 최소 2대 | 노드 단위 장애/재배치 및 자원 풀 공유 |
-| GPU 통합 | AL2023 NVIDIA EKS 최적화 AMI + 별도 Device Plugin 우선 검토 | AMI에 포함된 Driver/Toolkit 확인, Operator 중복 관리 방지. 다른 AMI 사용 시 포함 범위를 다시 검증 |
-| Pool 정책 | K8s 기본 스케줄링 → Kueue 비교 실험 | Kueue admission과 Kubernetes Pod scheduling의 역할·대기 상태를 나누어 측정 |
-| Storage | 초기 S3 결과/체크포인트 → 필요성 검증 후 EFS/CSI | Phase 02~04에 최소 영속성 확보, Phase 05에서 공유·I/O 성능 검증 |
-| Observability | DCGM, Prometheus, Grafana | GPU 사용량과 Job·Node·앱 지표 연결 |
-| IaC | Terraform | AWS 생성·삭제 및 구성 재현 |
-| Demo | React/Vite + FastAPI | 복잡한 제품 개발 없이 사용자 워크로드 재현 |
+| GPU 운영 | 드라이버·런타임·CUDA 호환성 검증, YOLO 학습 | 여러 모델 서비스 |
+| Kubernetes | EKS·별도 GPU Worker 2대·Device Plugin·Job | 커스텀 GPU 스케줄러 |
+| 자원 공유 | 기본 `nvidia.com/gpu` 정수 할당과 Pending 관측 | MIG/Time-Slicing, Kueue 고급 정책 |
+| 데이터 | S3·EBS/캐시 비교, CPU DataLoader, Checkpoint | 초기부터 EFS/고성능 분산 파일시스템 의무화 |
+| 관측·진단 | GPU·CPU·I/O·로그·Events·RCA | 실제 물리 수리, InfiniBand 장비 실험 |
+| 사용자 인터페이스 | kubectl/Job manifest/스크립트 | React UI, FastAPI Job 서비스 |
 
-## Gemma 추론 모델 선택 (2026-11-12 계획)
+## 용량·비용 제약
 
-- **단일 확정 모델:** `google/gemma-4-E4B-it-qat-w4a16-ct` — 공식 4비트 QAT(W4A16) 가중치 + vLLM. E2B 대체 모델을 별도로 운영하지 않는다.
-- 직접 양자화하지 않고 공식 QAT 가중치를 사용한다. vLLM 런타임에서의 실제 메모리 소비량과 지원 GPU/드라이버는 **G1 실행 검증 전까지 미확정**.
-- Google의 Q4_0 메모리 표(예: E4B 4.5GB)는 vLLM W4A16 메모리와 같은 측정 기준이 아니므로, GPU 최소 VRAM으로 단정하지 않는다. KV Cache·동시성·메모리 여유를 포함한다.
-- **GPU 인스턴스 후보:** `g6.xlarge`(L4 전체 GPU) 우선 검증; 더 저렴한 `g4dn.xlarge`(T4 전체 GPU)는 최신 vLLM 및 Gemma 4 QAT 호환성 검증 시에만 대체. `g6f` 계열은 분할 GPU라 기본 프로젝트 범위 밖.
-- G2는 **전체 GPU 하나씩 장착한 서로 다른 Worker 두 대**를 유지하며 Gemma 경량화가 전체 GPU 분할 사용을 의미하지는 않는다.
-- 근거: https://gemma.ai/get-started/qat/ · https://gemma.ai/deployment/vllm/ · https://github.com/vllm-project/recipes/blob/main/Google/Gemma4.md
+- 초기 목표 GPU는 **L4 1개/노드** (`g6.xlarge` 후보), G1 1대 → G2 서로 다른 노드 2대. 운영 전 서울 리전 쿼터/AZ/AMI/가격을 재확인한다.
+- `g6.xlarge`는 GPU VRAM뿐 아니라 **호스트 RAM/CPU**가 제한될 수 있다. YOLO 데이터 로딩이 느리면 GPU만 증설하지 않는다.
+- EKS Control Plane, CPU 시스템 노드, NAT, EBS, S3, IPv4, 데이터 전송 등의 별도 요금이 있다.
+- 실제 GPU 4대·Slurm·대규모 분산 학습은 필수 목표가 아니다.
+- 단일 노드 장애 시 다른 GPU가 이미 점유 중이면 즉시 Job이 재배치된다고 보장할 수 없다.
 
-## 확인이 필요한 설계 결정
+## 설계 검증 필요사항
 
-- AWS 리전·AZ별 EC2 GPU 인스턴스 사용 가능 여부 및 계정 vCPU/GPU 관련 쿼터
-- GPU VRAM에 맞는 Gemma 4 모델/양자화/추론 런타임
-- GPU AMI/드라이버/Device Plugin 버전 조합과 지원 상태
-- EKS Worker/node repair 기능 적용 범위, 감지와 실제 복구 절차
-- S3/EFS/로컬 캐시의 모델 로딩·학습 데이터 적합성
-- 지속형 추론 서비스에 GPU를 예약할지, 배치와의 경쟁을 허용할지
-- 실제 운영에 필요한 GPU 노드 스케일 정책 및 비용/가용성 trade-off
-- 2 GPU 조건에서 Gemma 실시간 서빙 1 GPU를 예약할 때의 배치 가용 용량·장애 허용 한계
-- GPU 노드 장애 시 용량 회복 목표와 실제 서비스 복구 목표(RTO 등)를 분리한 정책
+1. 실제 GPU AMI/Driver/Toolkit 및 Device Plugin의 지원·중복 설치 관계.
+2. YOLO 이미지·데이터셋 버전 고정, 정확한 CPU·VRAM 요구량 실측.
+3. 데이터 I/O 방식 비교 시 캐시/워커 수/CPU 제한/이미지 수 같은 통제 변수 기록.
+4. EKS 노드 교체가 학습 상태 자동 복원을 의미하지 않는다는 점 검증.
+5. 관측 대시보드는 실제 인스턴스와 작업 단위를 연결할 수 있는지 확인.
 
-## 불포함/한계
-
-- 고객사의 이전(Source) 시스템을 별도 구축하지 않음
-- GPU 분할 공유, 다중 GPU 분산 학습, InfiniBand/RDMA 실제 하드웨어 검증은 기본 범위에 포함하지 않음
-- 물리 GPU 설치/수리/냉각 검증은 불가능하며 수행했다고 주장하지 않음
-- GPU Worker 1대 장애 시 다른 GPU의 잔여 용량이 없으면 즉시 재배치할 수 없음
-- 노드 교체, Job 재시도, 체크포인트 복구, 서비스 무중단은 서로 다른 보장 수준
-- 2 GPU 구성은 **노드 장애 재현 환경**이지 무중단 또는 다중 AZ 고가용성을 자동 보장하지 않음
+[커리큘럼](curriculum.md) · [테스트 계획](test-plan.md) · [참고 사례](references.md)
