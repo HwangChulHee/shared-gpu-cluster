@@ -12,6 +12,14 @@
 
 상세 게이트와 ON 수행 절차는 [GPU 실행 게이트](gpu-execution-gates.md) 참조.
 
+## 실험 실행 전 계약과 종료 판정
+
+- **B01/CUDA Smoke:** 호스트 Driver→컨테이너 GPU 노출→CUDA 텐서 연산→COCO8 학습. 앞 단계 실패 시 다음 단계 중단; CPU YOLO 결과는 GPU 성공 증거가 아님.
+- **B03/T01 기준선:** COCO8과 별도 성능 데이터셋, 기준선 workers/batch/epochs/imgsz/cache/seed/이미지 digest·S3 데이터 경로/실험 횟수·GPU 지표를 고정. T01은 B03 데이터를 대조군으로 재사용. workers=0/2 비교는 초기 후보이며 메트릭/설정 실패 시 중단.
+- **모니터링:** Prometheus/Exporter 수집 위치·접근 경로, 데이터 원본/TSDB snapshot 또는 검증된 원격 보존, Grafana JSON, Run ID·UTC 시간축 매핑을 GPU 가동 전에 시험. **대시보드만 저장하고 데이터 반출 없이 GPU EC2 삭제하지 않는다.**
+- **F03 Worker 중단:** 쿼터 8 vCPU에서 두 G Worker 사용 시 세 번째를 바로 만들 수 없음. EC2 실제 종료·쿼터/Capacity 확보→Node Ready→GPU Allocatable→Pod Job lifecycle→YOLO resume을 서로 독립 기록. checkpoint 백업·복구 검증 전에 중단 주입 금지.
+- **공통 종료:** 실험 로그·종료 코드·원본 메트릭·Checkpoint S3 보존과 다운로드/재조회·무결성 검증 후 GPU/네트워크/스토리지 유료 자원 정리. GPU OFF에서 결과 비교.
+
 ## 실험 구조
 
 | 구간 | 검증 | Lab |
