@@ -29,7 +29,7 @@ Phase 07   재현성·운영 보고서·Runbook/RCA
 
 GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, G2는 EKS GPU Worker 2대**를 뜻합니다. G1과 G2를 동시에 띄울 필요는 없습니다. `g6.xlarge`(4 vCPU) 2대는 **쿼터상 가능**하지만 실제 AZ 용량·비용은 실행 전에 확인합니다.
 
-**비용을 고려한 실제 실행 순서:** GPU를 끄고 켜는 횟수를 줄이도록 **G1 세션 중 06-01·06-02**, **G2 세션 중 06-03·06-04**를 수행합니다. Lab 번호순으로 클러스터를 여러 번 재구축하지 않습니다. G1 EC2부터 Terraform으로 생성하고 최종 07-01에서 재현·삭제 결과를 점검합니다.
+**비용을 고려한 실제 실행 순서:** GPU를 끄고 켜는 횟수를 줄이도록 **G1 세션 중 06-01·06-02**, **G2 세션 중 06-03·06-04**를 수행합니다. Lab 번호순으로 클러스터를 여러 번 재구축하지 않습니다. **최초 G1은 AWS 콘솔로 수동 생성·검증·삭제**하고, 이후 별도의 짧은 07-01 세션에서 **Terraform으로 재현·삭제**합니다. G2는 Terraform으로 구축합니다.
 
 ## 핵심 역량
 
@@ -47,10 +47,17 @@ GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, 
 - [21 Lab 단계별 커리큘럼](docs/curriculum.md) · [21개 Lab 교안](docs/labs/README.md)
 - [단일 GPU → Kubernetes 확장 아키텍처](docs/architecture.md)
 - [사례 기반 실험 계획](docs/test-plan.md) · [공식·실무 근거](docs/references.md)
-- [GPU 비용·안전·삭제 원칙](docs/operations.md)
+- [GPU 비용·안전·삭제 원칙](docs/operations.md) · [GPU 실행 게이트와 OFF/ON/OFF 순서](docs/gpu-execution-gates.md)
 - [2026-11-13 목표·방향성·커리큘럼 검증 보고서](docs/goal-review-2026-11-13.md)
 - [2026-11-13 Lab 재배치 대응표](docs/migration-2026-11-13.md) · [이전 29→21 개편 기록](docs/migration-2026-11-12.md)
 - [학습 진도](learning/progress.md) · [대화형 학습 가이드](learning/GPT_GUIDE.md)
+
+## 실행 환경과 검증 구분
+
+- **GPU OFF-1:** Linux·GPU/CUDA 기초, CPU YOLO·S3 resume, Prometheus/Grafana 로컬 실습, GPU 이미지·데이터·스크립트·실험 계획·모니터링 및 종료 절차를 미리 완성한다.
+- **GPU ON:** Driver→컨테이너 GPU→CUDA→YOLO 검증을 통과한 후에만 정상 기준선·DataLoader 비교·통제 OOM·checkpoint 재개를 실행하고 원본 로그/지표를 외부로 보존한다.
+- **GPU OFF-2:** 인스턴스/관련 자원 정리 후 성능 분석, Runbook/RCA·비용 기록을 작성한다. **로컬 CPU 검증과 GPU 실측은 서로 다른 완료 증거다.**
+- G2에서는 **OFF-1 EKS IaC·Plugin·Job·관측 준비 → ON GPU Worker 2대 검증·정리 → OFF-2 결과 분석**을 동일하게 적용한다.
 
 ## 실습 원칙
 
