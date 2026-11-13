@@ -18,6 +18,26 @@
 - GPU 비용 절약을 위해 분석은 로컬에서 수행하되, 모니터링 서버/데이터를 어디에 둘지 먼저 결정한다. 로컬 Grafana를 사용할 경우 원격 Exporter 접근 경로와 보안을 확인하며, 공개 인터넷에 /metrics를 무방비 노출하지 않는다.
 - GPU 의존성 테스트(NVIDIA 장치·드라이버·CUDA 커널·DCGM 실측)는 OFF에서 완전 검증 불가능하다. 첫 G1 세션은 그 제약을 확인하는 단계이기도 하다.
 
+## 운영상 의사결정·필수 산출물
+
+1. **G1 이미지:** CPU Docker와 별도로 GPU용 CUDA/PyTorch 이미지·Ultralytics 버전·AMI/Driver 호환 표, 이미지 digest·ECR/registry 인증 및 배포 절차. 완전한 CUDA 검증은 GPU ON에서만 가능.
+2. **계측 배치:** 로컬 Prometheus/Grafana + GPU 호스트 Exporter 방식을 우선 검토하되, SSH 터널/사설 접근을 실제로 확인한다. 어려우면 GPU 호스트 측 수집 후 일관된 TSDB snapshot/원격 수집을 계획한다. Grafana JSON이나 단순 PNG만으로는 원본 시계열 복원이 안 된다. 원본 export→재조회가 사전 게이트.
+3. **성능:** COCO8 smoke와 별도 benchmark 데이터셋. 기준선 Run ID/동일 변수/메트릭·반복 횟수를 먼저 고정. 03-03 기준선은 06-02에서 다시 만들지 않는다. DataLoader workers=0/2는 초기 후보이며 다른 변수 고정.
+4. **G2 쿼터:** 2×g6.xlarge = 승인된 8 vCPU 전부. Worker 교체 시 EC2 종료·쿼터 반환과 새 Capacity는 보장되지 않는다. Job 재실행·Pod 재생성·YOLO checkpoint resume은 구분한다.
+5. **최초 구축 방식:** G1은 콘솔 수동 구축·수동 삭제. 그 후 Terraform 코드와 plan을 준비해 **별도 짧은 세션**에서 apply/destroy 검증. G2는 Terraform으로 구축·정리.
+
+### ON 전 실험 카드에 반드시 적을 필드
+
+```text
+run_id / phase / lab / GPU_ON 예상 시작·종료 시각·예산·중단 기준
+AMI/Driver/Toolkit/CUDA·PyTorch·YOLO 버전, Docker image digest
+데이터셋 출처·라이선스·샘플 수·SHA256, S3 key, EBS 경로
+기준선 vs 변경변수, epochs/imgsz/batch/workers/cache/seed, 반복 횟수
+명령/실패 시 중단·롤백·정리 절차, log/metrics/checkpoint S3 경로
+계측 시작·종료 구간·수집 주기·Run ID와 시간축 연결
+로그/원본 메트릭/체크포인트의 실제 보존 및 재조회 검사
+```
+
 ## G1: OFF-1 사전 준비 게이트
 
 | 분류 | GPU 없이 확인할 내용 | 상태/증거 원칙 |
