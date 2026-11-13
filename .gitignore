@@ -1,0 +1,44 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Secrets and local-only configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+
+# Local YOLO / PyTorch artifacts
+runs/
+datasets/
+weights/
+.ultralytics/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.engine
+events.out.tfevents.*
+
+# Local benchmark output and temp files
+.cache/
+tmp/
+*.log
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
