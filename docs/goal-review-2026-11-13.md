@@ -1,5 +1,7 @@
 # 2026-11-13 목표·커리큘럼 재검토 보고
 
+> **이 문서는 최초 검토 당시의 이력입니다.** 이후 확정된 실행 규칙은 [현행 GPU 실행 게이트](gpu-execution-gates.md)와 [현행 커리큘럼](curriculum.md)을 우선합니다. 특히 G1 최초 구축은 콘솔 수동 구성, Terraform은 후속 별도 재현 세션입니다.
+>
 > 범위: 저장소 README, 아키텍처·운영·테스트 계획, 현재 21 Lab 교안과 학습 진도. **문서 검증**이며 GPU/EC2/EKS Terraform apply·성능 실측·장애 주입은 수행하지 않았습니다.
 
 ## 목표 적합성 결론
@@ -17,7 +19,7 @@
 | 항목 | 확인된 문제 | 수정 |
 |---|---|---|
 | 실제 GPU 과금 세션 | Phase 06의 G1 OOM·데이터 실험이 EKS Phase 뒤에 있어 G1 재구축 위험 | **G1에서 Phase 01–03 + 06-01/06-02**, G2에서 Phase 04–05 + 06-03/06-04를 수행하도록 분리 |
-| Terraform 도입 순서 | G1이 수동 EC2 구축으로 끝나고 07-01에서야 IaC를 시작할 위험 | **01-02 G1 Terraform 초안 및 비용·destroy 게이트**, 07-01은 G1/G2 재현·삭제 검증 |
+| Terraform 도입 순서 | G1이 수동 EC2 구축으로 끝나고 07-01에서야 IaC를 시작할 위험 | **당시 제안: 01-02 G1 Terraform 초안 및 비용·destroy 게이트 (이후 변경: 최초 콘솔 수동 구축, Terraform은 후속 재현)**, 07-01은 G1/G2 재현·삭제 검증 |
 | GPU 자원 등록 역할 | 논리 그림이 Device Plugin을 Scheduler와 GPU Worker 사이의 중앙 경로로 오해하게 함 | 각 Worker 내부의 장치 리소스 등록 구성 요소로 표현; Scheduler는 Node Allocatable/Pod 자원요청 평가 |
 | 기초 Lab 완료 상태 | 01-01 교안의 GPU 실측 전 일반 문구가 이론 완료 기록과 모순 | 이론·시나리오 전용 완료를 명시 |
 | 시스템 운영 자동화 | Linux 진단 항목은 있었으나 실행 스크립트 산출물이 약함 | 02-01에 Bash/Python 수집 스크립트 및 로그·에러 처리 증거 추가 |
@@ -35,7 +37,7 @@
 
 ## 남은 개선·우선순위
 
-1. **P0 (GPU 실행 전):** G1 Terraform 코드, AMI/Driver·CUDA/Toolkit·YOLO 버전 호환성, S3/EBS 데이터셋, 실제 비용·destroy 경로 및 짧은 실행 스크립트.
+1. **P0 (GPU 실행 전):** G1 콘솔 구축·삭제 절차 및 후속 Terraform 재현 코드/plan, AMI/Driver·CUDA/Toolkit·YOLO 버전 호환성, S3/EBS 데이터셋, 실제 비용·destroy 경로 및 짧은 실행 스크립트.
 2. **P1 (G1 실행):** 실제 Linux·GPU 실행 검증, 데이터·CPU·메모리 측정, DCGM/노드 지표, 조건별 비교. 명확한 성능 개선이 관측되지 않으면 미개선 그대로 보고.
 3. **P2 (G2 실행):** 같은 YOLO Docker 이미지를 EKS Job으로 이동하고 GPU Device Plugin/노드/Job 메트릭과 장애 타임라인을 확보.
 4. **선택:** Kueue는 별도 필요 조건이 확인될 때만. Slurm/InfiniBand/RDMA·물리 GPU 서버 유지보수는 이번 AWS 프로젝트에서 실습으로 증명하지 않으며 차후 학습 또는 실제 사례 분석으로 구분.
@@ -59,4 +61,4 @@
 - [AWS EKS NVIDIA AMI 비교](https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-optimized-ami.html) · [GPU Device Plugin 가이드](https://docs.aws.amazon.com/eks/latest/userguide/device-management-nvidia-dra-device-plugin.html)
 - Lab 01-02는 **GPU 실행 전 설계·비용 검토**이므로 실제 GPU 실측을 완료 요건으로 요구하던 모순을 제거함.
 
-**판단:** 커리큘럼 21개를 추가로 늘리거나 EKS를 다시 앞쪽으로 옮길 근거는 없음. 실제 구축 전 고정해야 할 사항은 AMI 유형, OS/Driver/컨테이너 호환성, GPU 인스턴스/AZ 단가 및 용량, G1 최소 Terraform·destroy 경로, 모델·데이터셋 버전이다. 지금까지 검증은 **문서와 공식 기술 근거 검토**이며 실제 AWS 인프라 구축 성공을 증명하지 않는다.
+**판단:** 커리큘럼 21개를 추가로 늘리거나 EKS를 다시 앞쪽으로 옮길 근거는 없음. 실제 구축 전 고정해야 할 사항은 AMI 유형, OS/Driver/컨테이너 호환성, GPU 인스턴스/AZ 단가 및 용량, G1 콘솔 구축·삭제 및 후속 Terraform·destroy 경로, 모델·데이터셋 버전이다. 지금까지 검증은 **문서와 공식 기술 근거 검토**이며 실제 AWS 인프라 구축 성공을 증명하지 않는다.
