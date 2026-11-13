@@ -28,6 +28,15 @@
 | 07 | 07-01 | Terraform 재현·비용 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 07 | 07-02 | 운영 보고서·RCA | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 
+## GPU 비용 최소화 실행 구간과 현재 사전 검증
+
+모든 Lab은 **GPU OFF-1 사전 학습/로컬 검증 → GPU ON 실제 GPU 실측 → GPU OFF-2 분석/기록**으로 구분한다. [상세 실행 게이트](../docs/gpu-execution-gates.md). GPU 없이 가능한 이론과 연습을 우선 마쳐야 하며, G1/G2는 준비 완료 후 짧은 통합 세션으로 검증한다.
+
+- **로컬에서 검증한 사항(2026-11-13 사용자 실행 로그):** WSL Ubuntu + uv, CPU PyTorch/YOLO11n COCO8 2 Epoch 학습, 중단 시점 optimizer 포함 체크포인트로 CPU 학습 재개, Docker CPU 이미지/마운트/일반 사용자 UID/GID·파일 보존, Dockerfile/스크립트 main 브랜치 반영.
+- **아직 미검증:** 로컬 S3 checkpoint 업로드·복원, Prometheus/Grafana 실습, GPU 이미지·실험 자동화, 실제 g6.xlarge NVIDIA/CUDA/DCGM/YOLO 실측, G2 EKS GPU 노드.
+- **주의:** 2 Epoch 정상 완료 후 Ultralytics가 optimizer를 제거한 `last.pt`는 optimizer 상태를 포함하는 중단 체크포인트와 다르다. S3 resume 검증에는 후자를 사용한다.
+- **진도 기준:** 위 로컬 준비는 관련 Lab의 사전 단계 증거이며 실제 GPU 수행 여부/최종 Lab 완료 개수는 변경하지 않는다. 실습 내용을 사용자 로그 밖으로 확대 해석하지 않는다.
+
 ## Phase 진행 현황
 
 | Phase | 전체 | 완료 | 상태 |
