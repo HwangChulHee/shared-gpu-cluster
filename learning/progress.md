@@ -2,12 +2,12 @@
 
 > **2026-11-13 재편:** G1 Linux 서버 → 데이터·시스템 → 단일 서버 관측·성능 → G2 EKS 확장 → 클러스터 운영 → 실제 사례 검증. [번호 대응표](../docs/migration-2026-11-13.md). 실제 GPU EC2·YOLO·EKS 실측은 아직 **0건**.
 >
-> **AWS 확정 사실:** 서울 리전 Running On-Demand G and VT instances **8 vCPU 승인 및 적용 확인** (AWS 메일 + `aws service-quotas get-service-quota --region ap-northeast-2 --service-code ec2 --quota-code L-DB2E81BA`, `Value: 8.0`). **쿼터만 확인됐으며 EC2 생성/AZ 용량·가격 미검증.**
+> **AWS 확정 사실:** 서울 리전 Running On-Demand G and VT instances **8 vCPU 승인 및 적용 확인** (AWS 메일 + `aws service-quotas get-service-quota --region ap-northeast-2 --service-code ec2 --quota-code L-DB2E81BA`, `Value: 8.0`). `g6.xlarge` **인스턴스 타입 제공 AZ는 2a/2c/2d**, AWS Pricing API로 조회한 서울 Linux On-Demand EC2 컴퓨팅 단가는 **$0.9896/시간**이다. **실제 현재 AZ 잔여 Capacity와 EC2 생성 성공 여부는 아직 미검증**이다.
 
 | Phase | Lab | 학습 주제 | 이론 | 실습 | 설명력(0–3) | 적용력(0–3) | 상태 | 복습 | 마지막 학습 |
 |---|---|---|---|---|---|---|---|---|---|
 | 01 | 01-01 | GPU 컴퓨팅 기초 | 완료 | 해당 없음(이론 전용) | 3/3 | 3/3 (시나리오) | 완료 | 2026-11-15 | 2026-11-12 |
-| 01 | 01-02 | GPU 용량·AWS 비용·쿼터 | 부분 학습 | 쿼터 8 vCPU 적용 확인, 비용 계획 미완료 | 미평가 | 미평가 | 진행 중 | — | 2026-11-12 |
+| 01 | 01-02 | GPU 용량·AWS 비용·쿼터 | 부분 학습 | 쿼터 8 vCPU·제공 AZ 2a/2c/2d·EC2 단가 $0.9896/h 확인, 부가 비용·Terraform 계획 미완료 | 미평가 | 미평가 | 진행 중 | — | 2026-11-13 |
 | 01 | 01-03 | Linux NVIDIA 스택·YOLO 실행 | 선행 일부 이론 이수 | G1 GPU 실습 대기 | 미평가(통합 Lab) | 미평가 | 진행 중 | — | 2026-11-12 |
 | 02 | 02-01 | Linux 시스템 운영·진단 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 02 | 02-02 | 스토리지·네트워크 데이터 경로 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
@@ -48,7 +48,7 @@
 | 과거 ID | 당시 주제 | 실제 평가·상태 | 새 21 Lab 참고 |
 |---|---|---|---|
 | [01-01](records/01-01.md) | GPU 기초 | 설명력 3/3, 시나리오 적용 3/3 | 개념 동일: 01-01 완료로 유지 |
-| 01-02 | GPU 쿼터·비용 | 8 vCPU 승인·적용 확인. 가격·실행 전 | 새 01-02 진행 중 |
+| 01-02 | GPU 쿼터·비용 | 8 vCPU 승인·적용, g6.xlarge 제공 AZ 2a/2c/2d, Pricing API $0.9896/h 확인. 실제 Capacity·실행 전 | 새 01-02 진행 중 |
 | [01-03](records/01-03.md) | NVIDIA 스택 | 이론 설명 2/3, 시나리오 적용 2/3, GPU 미실행 | 새 01-03 일부 선행 |
 | [01-04](records/01-04.md) | Gemma 추론 | 이론 3/3+3/3, GPU 미실행 | 필수 과정 제외·보존 |
 | [01-05](records/01-05.md) | YOLO 학습 | 이론 3/3+3/3, GPU 미실행 | 새 01-03/02-03/03-03 참고 |
@@ -62,7 +62,7 @@
 
 ## 다음 단계
 
-1. **Lab 01-02**: 쿼터는 확인했으므로 g6.xlarge 온디맨드 단가, AZ 용량, AMI/Driver/컨테이너와 CPU/RAM 제약, 실습 시간·삭제 계획까지 확정.
+1. **Lab 01-02**: 쿼터 8 vCPU, g6.xlarge 제공 AZ 2a/2c/2d, 서울 Linux On-Demand EC2 단가 $0.9896/h까지 확인. 다음으로 EBS gp3·Public IPv4 등 부가 비용, 실제 Capacity와 AMI/Driver/컨테이너·CPU/RAM 제약, 실습 시간·삭제 계획을 확정.
 2. **Lab 01-03**: GPU 없이 준비 가능한 이미지·YOLO 데이터·실습 명령과 이상 시 확인할 계층을 정리한 후 G1에서 실제 검증.
 3. **G1 세션:** Phase 01–03과 **06-01 GPU OOM·06-02 데이터 로딩 성능**을 같은 Linux GPU 환경에서 수행하고 07-01 G1 재현/삭제 증거를 남겨 GPU 비용 종료.
 4. **G2 세션:** Phase 04–05와 **06-03 GPU 인식·06-04 Worker 장애**를 같은 EKS 환경에서 수행하고 07-01 G2 정리 후 종료.
