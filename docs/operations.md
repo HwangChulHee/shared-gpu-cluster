@@ -13,6 +13,13 @@
 
 **G1 세션:** Phase 01–03 + **06-01 CUDA OOM·06-02 DataLoader 성능 비교**를 하나의 실행 구간으로 묶어 완료한다. **G2 세션:** Phase 04–05 + **06-03 GPU 인식·06-04 Worker 중단**을 묶는다. G1 종료·증거 보존 후 G2를 구축하고 GPU 사용료가 중복되지 않도록 한다. CUDA/모델/실험 코드는 재사용하되 Terraform 구성은 환경별로 구분한다.
 
+## GPU 실행시간 최소화 운영 절차
+
+- **OFF-1:** [GPU 실행 게이트](gpu-execution-gates.md)를 완료한 뒤에만 비용을 발생시킨다. CPU YOLO/Docker/S3 checkpoint와 로컬 Prometheus/Grafana를 먼저 검증한다. 모델·데이터·GPU 이미지·스크립트·메트릭 export·상한 시간·삭제 명령을 고정한다.
+- **ON:** 시작 시 환경 계층별 확인, smoke, baseline, 비교, 통제 장애, S3 증거 백업만 수행한다. 실패 시 무작정 재설치/반복하지 말고 사전 중단 조건에 따라 정리 후 OFF-1로 돌아간다.
+- **OFF-2:** 종료 후 PromQL·Grafana·실측 결과 해석, RCA·Runbook·Terraform 보고서 작성. 모니터링 결과를 로컬에서 분석하려면 원본/CSV/스냅샷 등 **복원 가능한 경로를 실습 전에 마련**한다.
+- G1과 G2 동시 가동 금지. G1 최초 수동 콘솔 실험과 Terraform 재현 세션도 별개로 설계한다. GPU 인스턴스 정지와 리소스 삭제의 차이를 비용에서 확인한다.
+
 ## 실습 전 게이트
 
 - [x] GPU G/VT On-Demand 쿼터 8 vCPU 승인·적용 확인 (리전: 서울)
