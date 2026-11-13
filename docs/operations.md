@@ -20,8 +20,8 @@
 - [ ] 사용할 Linux AMI·NVIDIA Driver/CUDA·Toolkit·컨테이너·YOLO 이미지 버전 지원 확인. **EKS AL2023 NVIDIA AMI는 Plugin 별도 설치, Bottlerocket NVIDIA AMI는 Plugin 내장** 여부 구분
 - [ ] G1 또는 G2의 비용 견적 (EBS/NAT/인증/CloudWatch/S3 포함)·예산·실습 시간 설정
 - [ ] 실제 실행 명령, 데이터·Checkpoint 보존 경로, 안전한 복구·삭제 절차 준비
-- [ ] **G1 단일 GPU EC2부터 Terraform으로 생성**하도록 코드·state·destroy 경로를 사전 준비. Terraform state에 자격 증명 저장/공개 금지
-- [ ] `terraform plan`에서 생성 자원·출력·destroy 영향 확인
+- [ ] **G1 최초 실습은 AWS 콘솔에서 수동 생성·운영 후 삭제**. AMI·네트워크·보안 그룹·IAM·EBS 등 구성값과 삭제 순서를 미리 기록. Terraform 재현은 07-01 별도 짧은 세션에서 검증하며 state에 자격 증명 저장/공개 금지
+- [ ] G1 콘솔 세션 전 수동 정리 대상(EC2, EBS, Elastic IP, 보안 그룹, S3 잔여 객체 등)을 확인. 07-01에서 `terraform plan`의 생성 자원·출력·destroy 영향을 별도 확인
 - [ ] GPU 종료 후 EC2/EKS/EBS/NAT/LB/ENI/IPv4/CloudWatch/S3 등 잔여 과금 점검
 
 ## 보안
