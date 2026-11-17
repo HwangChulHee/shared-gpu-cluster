@@ -42,3 +42,5 @@ tmp/
 .idea/
 .DS_Store
 Thumbs.db
+
+/monitoring/backups/
