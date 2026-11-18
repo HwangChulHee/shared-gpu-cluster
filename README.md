@@ -51,6 +51,7 @@ GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, 
 - [2026-11-13 목표·방향성·커리큘럼 검증 보고서](docs/goal-review-2026-11-13.md)
 - [2026-11-13 Lab 재배치 대응표](docs/migration-2026-11-13.md) · [이전 29→21 개편 기록](docs/migration-2026-11-12.md)
 - [학습 진도](learning/progress.md) · [대화형 학습 가이드](learning/GPT_GUIDE.md)
+- **[운영 명령어 사전](learning/review/commands.md) · [반복 인출 복습 기록](learning/review/review-log.md)**
 
 ## 실행 환경과 검증 구분
 
