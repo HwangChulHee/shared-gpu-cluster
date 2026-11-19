@@ -1,0 +1,30 @@
+# G1 GPU EC2 only. Local Prometheus/Grafana remain in monitoring/compose.yml.
+# Requires NVIDIA driver + NVIDIA Container Toolkit. No GPU is started by this file.
+services:
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:v1.9.1
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=:9100
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "0.0.0.0:9100:9100"
+
+  dcgm-exporter:
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:4.6.1-4.8.4-distroless
+    restart: unless-stopped
+    # Profiling counters can require SYS_ADMIN; grant it only for this disposable lab.
+    cap_add:
+      - SYS_ADMIN
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "0.0.0.0:9400:9400"
