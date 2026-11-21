@@ -14,7 +14,7 @@
 | 02 | 02-03 | YOLO 데이터 로더·Checkpoint | OFF-1 이론 완료 | CPU YOLO 1 Epoch·메모리/시간 기준선, PyTorch DataLoader 2 Worker PID 실증; 실제 YOLO worker=0 확인, G1 실측 대기 | 개념·서술형 인출 완료(정량 미평가) | 로컬 실행 성공(정량 미평가) | 진행 중 (OFF-1 완료, ON 대기) | — | 2026-11-18 |
 | 03 | 03-01 | NVIDIA GPU 관측 | OFF-1 이론 완료 | collect-gpu-metrics.sh 작성·Bash 구문 검사 종료 코드 0; G1 지표 실측 대기 | 서술형 인출 완료(정량 미평가) | Bash 구문 검증 성공(정량 미평가) | 진행 중 (OFF-1 완료, ON 대기) | — | 2026-11-19 |
 | 03 | 03-02 | 단일 GPU 서버 모니터링 | 선행 로컬 Prometheus·Grafana 학습 완료, GPU 통합 이론 시작 | Node Exporter→Prometheus→Grafana·TSDB 복원 선행 검증; DCGM/G1 연계 대기 | 미평가 | 미평가 | 진행 중 (OFF-1) | — | 2026-11-19 |
-| 03 | 03-03 | 학습 성능 기준선·병목 분석 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
+| 03 | 03-03 | 학습 성능 기준선·병목 분석 | OFF-1 주요 이론 완료 | COCO 1000장 생성·S3 왕복 SHA256 검증·YOLO Benchmark --dry-run 성공; G1 실측 대기 | 서술형 인출 완료(정량 미평가) | 로컬 설정·데이터 검증 성공(정량 미평가) | 진행 중 (OFF-1 주요 검증 완료, ON 대기) | — | 2026-11-22 |
 | 04 | 04-01 | EKS 네트워크·IAM 설계 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 04 | 04-02 | Terraform EKS·GPU Worker | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 04 | 04-03 | Device Plugin·GPU Job | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
@@ -37,7 +37,9 @@
 - **Lab 02-02 로컬 검증(2026-11-18 사용자 로그):** WSL IAM User로 S3 객체 조회, 체크포인트 다운로드·SHA256 일치, 업로드 후 재다운로드·SHA256 일치, 스크립트 2개 main 반영, 테스트용 업로드 객체 삭제. 실제 G1 Instance Profile·EBS 전송은 대기. [Lab 02-02 기록](records/v3/02-02.md).
 - **Lab 02-03 로컬 검증(2026-11-18 사용자 로그):** YOLO CPU 1 Epoch 정상 완료, 요청 workers=2 vs YOLO 실사용 workers=0 구분, 전체 2:22.09·최대 RSS 1,965,272KB, PyTorch DataLoader 독립 검증에서 Worker PID 36042/36043 배치 분산 처리. [Lab 02-03 기록](records/v3/02-03.md).
 - **Lab 03-01 준비(2026-11-19 사용자 로그):** GPU Util·SM Active/Occupancy·Tensor Active·VRAM/DRAM·전력/온도 지표 학습, GPU CSV 수집 스크립트 생성 및 WSL `bash -n` 구문 검사 종료 코드 0. 실제 nvidia-smi/GPU 지표 수집은 미실행. [Lab 03-01 기록](records/v3/03-01.md).
-- **아직 미검증:** GPU 이미지·실험 자동화의 최종 검증, 실제 g6.xlarge NVIDIA/CUDA/DCGM/YOLO 실측, G2 EKS GPU 노드.
+- **Lab 03-02 로컬 검증(사용자 로그):** GPU Mock Exporter에서 Prometheus scrape·PromQL 값 42 확인, G1용 Prometheus YAML promtool 검사 및 별도 GPU Exporter Compose 설정 검사 성공. 실제 DCGM exporter/G1 메트릭은 미확인.
+- **Lab 03-03 OFF-1(2026-11-21~22 사용자 로그):** COCO 1,000장(Train 900/Val 100), manifest SHA256 확인; 159,497,259 bytes 아카이브 S3 왕복 SHA256 일치; Python 구문 검사 및 YOLO Benchmark --dry-run 성공. [기록](records/v3/03-03.md).
+- **아직 미검증:** GPU 이미지·실험 자동화의 최종 GPU 검증, 실제 g6.xlarge NVIDIA/CUDA/DCGM/YOLO 실측, G2 EKS GPU 노드.
 - **주의:** 2 Epoch 정상 완료 후 Ultralytics가 optimizer를 제거한 `last.pt`는 optimizer 상태를 포함하는 중단 체크포인트와 다르다. S3 resume 검증에는 후자를 사용한다.
 - **진도 기준:** 위 로컬 준비는 관련 Lab의 사전 단계 증거이며 실제 GPU 수행 여부/최종 Lab 완료 개수는 변경하지 않는다. 실습 내용을 사용자 로그 밖으로 확대 해석하지 않는다.
 
@@ -47,7 +49,7 @@
 |---|---:|---:|---|
 | 01 GPU 기초·단일 서버 | 3 | 1 | 01-01 완료; GPU 실습 대기 |
 | 02 Linux 시스템·데이터 | 3 | 0 | 02-01·02-02·02-03 OFF-1 완료(실제 G1 실측 대기) |
-| 03 단일 서버 모니터링·성능 | 3 | 0 | 03-01 OFF-1 완료(실측 대기), 03-02 선행 로컬 모니터링 검증 완료·GPU 통합 진행 중 |
+| 03 단일 서버 모니터링·성능 | 3 | 0 | 03-01~03-03 로컬 주요 사전 검증 완료, G1 GPU 통합 실측 대기 |
 | 04 EKS 확장 | 3 | 0 | 미시작 |
 | 05 클러스터 운영 | 3 | 0 | 미시작 |
 | 06 사례 기반 검증 | 4 | 0 | 미시작 |
