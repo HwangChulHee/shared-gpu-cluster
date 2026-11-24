@@ -41,8 +41,10 @@ def main():
     data = json.loads(manifest.read_text(encoding="utf-8"))
     train = sum(item["split"] == "train" for item in data["images"])
     val = sum(item["split"] == "val" for item in data["images"])
-    if train != 900 or val != 100:
-        parser.error(f"unexpected dataset split: train={train}, val={val}; expected 900/100")
+    expected_train = data.get("train_count", data["count"] - data["val_count"])
+    expected_val = data["val_count"]
+    if train != expected_train or val != expected_val or train < 1 or val < 1:
+        parser.error(f"dataset split mismatch: manifest={expected_train}/{expected_val}, files={train}/{val}")
     for item in data["images"]:
         if not (root / "images" / item["split"] / item["file_name"]).is_file():
             parser.error("missing image: " + item["file_name"])
@@ -56,7 +58,7 @@ def main():
         "val": True, "save": True, "plots": False,
         "train_images": train, "val_images": val,
         "manifest_sha256": digest(manifest), "repeat": args.repeat,
-        "source": "COCO2017 val2017 subset; throughput benchmark ONLY, not model accuracy validation",
+        "source": data.get("origin", "COCO2017 benchmark; throughput measurement only"),
     }
     print(json.dumps(config, ensure_ascii=False, indent=2))
     if args.dry_run:
