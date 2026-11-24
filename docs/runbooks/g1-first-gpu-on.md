@@ -1,6 +1,6 @@
 # G1 첫 GPU ON — Ubuntu 24.04 / NVIDIA L4 운영 Runbook
 
-> **상태 (2026-11-23): GPU OFF-1 문서 준비. 아직 EC2 인스턴스 생성/실제 GPU 측정 0건.**
+> **상태 (2026-11-24): 첫 G1 GPU ON 실제 실행·YOLO11n 기준선 1회·S3 보존·EC2 종료 완료.** [실측 보고서](../reports/g1-baseline-2026-11-24.md). 아래 명령은 재실행 참고용이며 실제 결과와 구별한다.
 > 목적: 드라이버→Docker GPU→PyTorch CUDA→YOLO→데이터/메트릭→S3 보존→과금 종료. **최초 G1은 콘솔에서 수동 생성·삭제**, Terraform은 07-01 별도 검증. 각 단계 실패 시 다음 단계로 진행하지 않는다.
 
 ## 0. 확정값·실행 게이트
@@ -106,27 +106,32 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-GPU 컨테이너 검증: **미리 이미지 태그/호스트 드라이버와의 최소 요구사항 확인 후 실행**. 예시(단순 진단 용도, 사용자 PyTorch 환경 버전과 별개):
+GPU 컨테이너 검증: **이미지 태그/호스트 드라이버의 최소 요구사항 확인 후 실행**. 예시(단순 진단 용도, 사용자 PyTorch 환경 버전과 별개):
 
 ```bash
 sudo docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
 ```
 
-위 태그 접근/호환 미검증이므로 `manifest unknown`/드라이버 요구 버전 오류 시 **다음 단계 중단**, 공식 태그와 지원 매트릭스에서 대체 검토.
+위 태그는 2026-11-24 G1에서 GPU 인식 성공(digest sha256:c87e78933f4c16e3272123bf2f75537306596d0fbaa395a29696a22786e5ee0e); 향후 환경 변경으로 `manifest unknown`/드라이버 요구 버전 오류 시 **다음 단계 중단**, 공식 태그와 지원 매트릭스에서 대체 검토.
 
 ## 5. Python GPU 환경 + S3 데이터 (G1)
 
 첫 세션은 호스트 Python venv로 구성해 스크립트를 직접 실행한다. Docker GPU 검증과 **실제 YOLO 실행이 호스트 venv 기반임을 구분**한다. (별도 GPU 학습 컨테이너화는 후속 작업.)
 
 ```bash
-sudo apt-get install -y python3-venv python3-pip git awscli
+sudo apt-get install -y python3-venv python3-pip git curl unzip
+# 실제 Ubuntu 24.04 G1에서는 apt awscli 패키지를 찾지 못해 AWS CLI v2 공식 zip으로 설치함.
+# https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 git clone https://github.com/HwangChulHee/shared-gpu-cluster.git
 cd shared-gpu-cluster
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv ~/gpu-venv
+source ~/gpu-venv/bin/activate
 python -m pip install -U pip
 python -m pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu126
 python -m pip install ultralytics==8.4.211
+# 실제 G1에서 libGL.so.1 오류가 발생했으며 아래와 같이 복구함:
+python -m pip uninstall -y opencv-python
+python -m pip install opencv-python-headless==5.1.0.95
 python - <<'PY'
 import torch,ultralytics
 print('torch',torch.__version__,'cuda runtime',torch.version.cuda,'ultralytics',ultralytics.__version__)
@@ -197,7 +202,11 @@ aws s3 ls "s3://shared-gpu-cluster-351889159717-ap-northeast-2-an/results/$RUN_I
 
 종료: `sudo docker compose -f monitoring/g1/compose.yml down` → EC2 콘솔에서 **Terminate**(Stop만으로 EBS/공인 IPv4 등의 잔여 과금 위험) → Instance 종료·루트 EBS 삭제 확인 → 추가 볼륨/Elastic IP·SG 테스트용 9100/9400 허용 규칙 제거 → 로컬 Prometheus G1 targets 정리 → CloudWatch/Billing 잔여 리소스 확인. S3에 남기는 데이터는 의도된 스토리지 비용이 지속됨.
 
-## 8. 중단 기준 및 아직 미해결
+## 8. 첫 실행에서 확인된 교훈과 미해결
+
+실제 G1 첫 실행은 [실측 보고서](../reports/g1-baseline-2026-11-24.md)에 기록했다. 최초 ON 중 YOLO/OpenCV `libGL.so.1` 오류, AWS CLI apt 설치 실패, G1 IAM Role의 SG 변경 거부, Prometheus 컨테이너 명령 오류와 초기 조회 누락을 복구했다. 실제 YOLO11n 3 Epoch 완료(67.251초, 40.148 images/s), Prometheus DCGM 5개 샘플, S3 6객체 보존, SG 9100/9400 허용 규칙 제거, EC2 `terminated` 확인. Batch/Worker 비교·OOM·Checkpoint resume·Terraform 재현은 아직 미수행.
+
+## 9. 중단 기준 및 아직 미해결
 
 - 1시간 내 완료 목표는 **GPU ON 전체 일정의 상한 목표이지 설치 시간 보장이나 자동 EC2 종료가 아니다**. 30분 시점에 Driver→Docker GPU 검증 실패하면 나머지 benchmark/OOM 포기하고 현황 기록·정리 고려; 실제 시간과 예산 기반 판단.
 - `nvidia-smi`/Docker GPU/PyTorch CUDA/데이터 SHA/메트릭 중 하나라도 실패 시 정상 기준선 실험 진행하지 않음.
