@@ -6,6 +6,7 @@ GPU-ON: require G1 CUDA, AWS Instance Profile, and an otherwise idle GPU.
 """
 import argparse
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,14 @@ def stamp():
 
 def cmd(args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
+
+
+def file_sha256(path):
+    h = sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def checkpoint_state(path):
@@ -112,6 +121,8 @@ def main():
                         checkpoint = None  # file may still be mid-write
                     if checkpoint and checkpoint["epoch_zero_based"] >= a.stop_after_epoch - 1:
                         # Upload the stable epochN.pt, not last.pt which may still be written.
+                        checkpoint_hash = file_sha256(candidate)
+                        report["uploaded_checkpoint_sha256"] = checkpoint_hash
                         cmd(["aws", "s3", "cp", str(candidate), prefix + "/last.pt",
                              "--region", a.region, "--only-show-errors"])
                         report["s3_uploaded_utc"] = stamp()
@@ -128,6 +139,10 @@ def main():
             part.unlink()
         cmd(["aws", "s3", "cp", prefix + "/last.pt", str(weights),
              "--region", a.region, "--only-show-errors"])
+        restored_hash = file_sha256(weights)
+        report["restored_checkpoint_sha256"] = restored_hash
+        if restored_hash != report["uploaded_checkpoint_sha256"]:
+            raise RuntimeError("S3 restored checkpoint SHA256 mismatch")
         restored = checkpoint_state(weights)
         if restored != checkpoint:
             raise RuntimeError("Downloaded checkpoint state differs from uploaded source")
