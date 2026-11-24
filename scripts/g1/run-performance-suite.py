@@ -4,6 +4,7 @@ import argparse
 import csv
 from datetime import datetime, timezone
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -26,6 +27,7 @@ def main():
     p.add_argument("--epochs", type=int, default=3)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--upload-s3", action="store_true", help="Upload each case to S3 after it succeeds")
+    p.add_argument("--no-host-metrics", action="store_true", help="Disable per-case GPU host telemetry")
     p.add_argument("--s3-bucket", default="shared-gpu-cluster-351889159717-ap-northeast-2-an")
     p.add_argument("--region", default="ap-northeast-2")
     args = p.parse_args()
@@ -46,6 +48,12 @@ def main():
         p.error(f"Session directory already exists; refusing overwrite: {session_dir}")
     if not runner.is_file():
         p.error(f"Benchmark runner missing: {runner}")
+    monitor_script = repo / "scripts" / "g1" / "collect-host-metrics.py"
+    if not args.dry_run and not args.no_host_metrics:
+        if not monitor_script.is_file() or not shutil.which("nvidia-smi"):
+            p.error("Missing metrics collector or nvidia-smi")
+        if subprocess.run(["nvidia-smi", "-L"], check=False).returncode:
+            p.error("GPU check failed: nvidia-smi -L")
 
     # Validate the entire dataset, including labels, before paid GPU execution.
     check = subprocess.run([
@@ -74,7 +82,26 @@ def main():
             "--output", str(case_output)
         ]
         print(f"\n[START] {name} {datetime.now(timezone.utc).isoformat()}", flush=True)
-        result = subprocess.run(cmd, check=False)
+        monitor = None
+        if not args.no_host_metrics:
+            case_output.mkdir(parents=True)
+            monitor = subprocess.Popen([
+                sys.executable, str(monitor_script),
+                "--output", str(case_output / "host-metrics.csv"), "--interval", "5"
+            ])
+        try:
+            result = subprocess.run(cmd, check=False)
+        finally:
+            if monitor is not None:
+                monitor.terminate()
+                try:
+                    monitor.wait(timeout=20)
+                except subprocess.TimeoutExpired:
+                    monitor.kill()
+                    monitor.wait()
+        if monitor is not None and monitor.returncode:
+            print(f"[STOP] Telemetry collector failed for {name}: exit={monitor.returncode}", file=sys.stderr)
+            raise SystemExit(monitor.returncode)
         summary_path = case_output / "baseline-01" / "summary.json"
         if summary_path.is_file():
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
