@@ -47,6 +47,7 @@ GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, 
 - [21 Lab 단계별 커리큘럼](docs/curriculum.md) · [21개 Lab 교안](docs/labs/README.md)
 - [단일 GPU → Kubernetes 확장 아키텍처](docs/architecture.md)
 - [사례 기반 실험 계획](docs/test-plan.md) · [공식·실무 근거](docs/references.md)
+- **[G1 원커맨드 설치 (다음 GPU ON용, 통합 미검증)](docs/runbooks/g1-one-command-bootstrap.md)** · [G1 설치 스크립트](scripts/g1/bootstrap.sh)
 - **[2026-11-24 G1 NVIDIA L4 실측 보고서](docs/reports/g1-baseline-2026-11-24.md)**
 - [GPU 비용·안전·삭제 원칙](docs/operations.md) · [GPU 실행 게이트와 OFF/ON/OFF 순서](docs/gpu-execution-gates.md)
 - [2026-11-13 목표·방향성·커리큘럼 검증 보고서](docs/goal-review-2026-11-13.md)
