@@ -49,7 +49,7 @@ def download_one(task):
     name = item["file_name"]
     if Path(name).name != name or not name.endswith(".jpg"):
         raise ValueError(f"Unsafe filename {name!r}")
-    url = f"https://images.cocodataset.org/{split}2017/{name}"
+    url = f"https://s3.amazonaws.com/images.cocodataset.org/{split}2017/{name}"
     destination.parent.mkdir(parents=True, exist_ok=True)
     for attempt in range(attempts):
         temp = destination.with_suffix(".jpg.partial")
