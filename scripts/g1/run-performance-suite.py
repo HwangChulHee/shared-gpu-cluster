@@ -5,6 +5,7 @@ import csv
 from datetime import datetime, timezone
 import json
 import shutil
+import time
 from pathlib import Path
 import subprocess
 import sys
@@ -89,19 +90,36 @@ def main():
                 sys.executable, str(monitor_script),
                 "--output", str(case_output / "host-metrics.csv"), "--interval", "5"
             ])
+        monitor_error = None
         try:
+            # Ensure the collector has initialized and emitted its first sample.
+            # A fast failing trainer should not produce a misleading '-15' monitor exit.
+            if monitor is not None:
+                deadline = time.monotonic() + 20
+                metrics_file = case_output / "host-metrics.csv"
+                while time.monotonic() < deadline:
+                    if monitor.poll() is not None:
+                        raise RuntimeError(f"Telemetry collector exited during startup: {monitor.returncode}")
+                    if metrics_file.exists() and metrics_file.stat().st_size > 130:
+                        break
+                    time.sleep(0.2)
+                else:
+                    raise RuntimeError("Telemetry collector did not produce a sample within 20 seconds")
             result = subprocess.run(cmd, check=False)
         finally:
             if monitor is not None:
-                monitor.terminate()
+                if monitor.poll() is None:
+                    monitor.terminate()
                 try:
                     monitor.wait(timeout=20)
                 except subprocess.TimeoutExpired:
                     monitor.kill()
                     monitor.wait()
-        if monitor is not None and monitor.returncode:
-            print(f"[STOP] Telemetry collector failed for {name}: exit={monitor.returncode}", file=sys.stderr)
-            raise SystemExit(monitor.returncode)
+                if monitor.returncode != 0:
+                    monitor_error = monitor.returncode
+        if monitor_error is not None:
+            print(f"[STOP] Telemetry collector failed for {name}: exit={monitor_error}", file=sys.stderr)
+            raise SystemExit(monitor_error if monitor_error > 0 else 1)
         summary_path = case_output / "baseline-01" / "summary.json"
         if summary_path.is_file():
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -123,6 +141,9 @@ def main():
             writer.writerows(rows)
 
         if result.returncode:
+            if args.upload_s3:
+                failure_dest = f"s3://{args.s3_bucket}/results/g1-comparisons/{args.session}/{name}/"
+                subprocess.run(["aws", "s3", "sync", str(case_output), failure_dest, "--region", args.region], check=False)
             print(f"[STOP] {name} failed: exit={result.returncode}; see training.log. No more cases run.", file=sys.stderr)
             raise SystemExit(result.returncode)
 
@@ -137,7 +158,10 @@ def main():
             print(f"[S3] {dest}", flush=True)
         print(f"[DONE] {name}", flush=True)
 
-    print(f"\n[COMPLETE] {len(rows)} experiments; comparison={table}", flush=True)
+    if args.upload_s3:
+        summary_dest = f"s3://{args.s3_bucket}/results/g1-comparisons/{args.session}/comparison.csv"
+        subprocess.run(["aws", "s3", "cp", str(table), summary_dest, "--region", args.region], check=True)
+    print(f"\\n[COMPLETE] {len(rows)} experiments; comparison={table}", flush=True)
     print("GPU instance is NOT automatically stopped or terminated.", flush=True)
 
 
