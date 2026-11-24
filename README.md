@@ -2,7 +2,7 @@
 
 > 저장소 URL은 기존 `shared-gpu-cluster`를 유지합니다. **목표는 GPU 공유 서비스 개발이 아니라 Linux GPU 서버 구축·운영 역량을 증명하고, 그 환경을 Kubernetes로 확장하는 것**입니다.
 
-**상태 (2026-11-13):** 7 Phase / 21 Lab 커리큘럼 개편. 서울 리전 On-Demand G/VT **8 vCPU 쿼터 승인·적용 확인**(AWS CLI 실제 출력). **GPU EC2 실행, YOLO GPU 실측, EKS 배포는 아직 미수행**입니다.
+**상태 (2026-11-24):** 7 Phase / 21 Lab. 서울 리전 On-Demand G/VT **8 vCPU 쿼터 승인·적용 확인**. **G1 g6.xlarge NVIDIA L4 구축·GPU YOLO 학습 기준선 측정·DCGM/Prometheus 관측·S3 결과 보존·EC2 종료 완료**. Batch/Worker 비교·OOM·EKS 배포는 아직 미수행입니다. [G1 실측 보고서](docs/reports/g1-baseline-2026-11-24.md).
 
 ## 프로젝트 시나리오
 
@@ -47,6 +47,7 @@ GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, 
 - [21 Lab 단계별 커리큘럼](docs/curriculum.md) · [21개 Lab 교안](docs/labs/README.md)
 - [단일 GPU → Kubernetes 확장 아키텍처](docs/architecture.md)
 - [사례 기반 실험 계획](docs/test-plan.md) · [공식·실무 근거](docs/references.md)
+- **[2026-11-24 G1 NVIDIA L4 실측 보고서](docs/reports/g1-baseline-2026-11-24.md)**
 - [GPU 비용·안전·삭제 원칙](docs/operations.md) · [GPU 실행 게이트와 OFF/ON/OFF 순서](docs/gpu-execution-gates.md)
 - [2026-11-13 목표·방향성·커리큘럼 검증 보고서](docs/goal-review-2026-11-13.md)
 - [2026-11-13 Lab 재배치 대응표](docs/migration-2026-11-13.md) · [이전 29→21 개편 기록](docs/migration-2026-11-12.md)
