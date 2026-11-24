@@ -57,9 +57,10 @@ if [[ ! -f $STATE_DIR/driver-installed ]]; then
   apt-get update
   apt-get install -y ca-certificates curl gnupg git unzip python3-venv python3-pip pciutils ubuntu-drivers-common
   lspci | grep -qi nvidia || { echo "No NVIDIA GPU PCI device; refusing driver install"; exit 2; }
-  echo "[G1] Installing Ubuntu-recommended headless/GPGPU driver"
+  echo "[G1] Installing tested 580-server-open GPGPU driver with matching 580-server utilities"
   ubuntu-drivers list --gpgpu
-  ubuntu-drivers install --gpgpu
+  ubuntu-drivers install --gpgpu nvidia:580-server-open
+  apt-get install -y nvidia-utils-580-server
   touch "$STATE_DIR/driver-installed"
 
   # Root-owned copy: systemd must not execute scripts writable by the unprivileged lab user.
@@ -172,8 +173,10 @@ echo "monitoring" > "$STATE_DIR/stage"
 docker compose -f monitoring/g1/compose.yml config -q
 docker compose -f monitoring/g1/compose.yml up -d
 docker compose -f monitoring/g1/compose.yml ps
-curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://127.0.0.1:9100/metrics | grep -q 'node_cpu_seconds_total' || { echo "Node metrics missing"; exit 4; }
-curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://127.0.0.1:9400/metrics | grep -q 'DCGM_FI_DEV_GPU_UTIL' || { echo "DCGM metrics missing"; exit 4; }
+curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://127.0.0.1:9100/metrics -o /tmp/g1-node-metrics
+curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://127.0.0.1:9400/metrics -o /tmp/g1-dcgm-metrics
+grep -q 'node_cpu_seconds_total' /tmp/g1-node-metrics || { echo "Node metrics missing"; exit 4; }
+grep -q 'DCGM_FI_DEV_GPU_UTIL' /tmp/g1-dcgm-metrics || { echo "DCGM metrics missing"; exit 4; }
 
 touch "$STATE_DIR/success"
 echo "done" > "$STATE_DIR/stage"
