@@ -27,7 +27,7 @@
 - [ ] 보안그룹 SSH 22는 현재 0.0.0.0/0: 가능하면 개인 IP /32로 축소. 9100/9400 공개 시 TLS/인증 없는 메트릭이 인터넷 전체에 노출됨. 사용자가 Public IP 직접 연결을 선택했으며 노출 위험 인지·실습 종료 즉시 규칙 제거.
 - [ ] 루트 볼륨 종료 시 삭제, 탄력 IP 할당 여부, 추가 볼륨/NAT GW/ALB 유무 확인.
 - [ ] 종료 시각/시간·비용 상한, SSH 연결 끊겨도 EC2 콘솔에서 종료할 방법 준비. **최초 Driver 설치에 재부팅이 필요하므로 1시간 내 모든 실험을 보장하지 않음.**
-- [ ] AMI는 일반 Ubuntu이므로 드라이버 사전 설치 확인 불가. Driver/Toolkit 컨테이너 조합 GPU 실측 전 미검증.
+- [ ] 재구축 시 AMI·드라이버·Toolkit 호환 재확인. 2026-11-24 첫 G1에서 Driver 580.178.04 + Docker NVIDIA Toolkit GPU 인식은 검증 완료.
 
 ## 1. EC2 생성 (AWS 콘솔, GPU ON 시작)
 
@@ -173,7 +173,7 @@ grep '^DCGM_FI_DEV_' /tmp/g1-dcgm-metrics | head || true
 
 ```bash
 # G1: 세션 시작/종료에 timestamp·config·logs 보존
-source .venv/bin/activate
+source ~/gpu-venv/bin/activate
 python scripts/run-yolo-benchmark.py --repeat 1
 # 첫 성공+남은 시간/비용 확인 후에만 반복·worker 튜닝·GPU OOM 실험 판단
 ```
