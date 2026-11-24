@@ -100,7 +100,7 @@ def main():
                 while time.monotonic() < deadline:
                     if monitor.poll() is not None:
                         raise RuntimeError(f"Telemetry collector exited during startup: {monitor.returncode}")
-                    if metrics_file.exists() and metrics_file.stat().st_size > 130:
+                    if metrics_file.exists() and len(metrics_file.read_text(encoding="utf-8").splitlines()) >= 2:
                         break
                     time.sleep(0.2)
                 else:
