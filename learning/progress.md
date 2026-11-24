@@ -13,8 +13,8 @@
 | 02 | 02-02 | 스토리지·네트워크 데이터 경로 | OFF-1 이론 완료 | WSL S3 Get/Put·SHA256·스크립트 검증 완료; G1 Instance Profile STS 인증·S3 다운로드 SHA256 검증 성공; EBS 성능 측정은 미수행 | 서술형 인출 완료(정량 미평가) | 로컬 실행 성공(정량 미평가) | 진행 중 (OFF-1 완료, ON 대기) | — | 2026-11-18 |
 | 02 | 02-03 | YOLO 데이터 로더·Checkpoint | OFF-1 이론 완료 | CPU YOLO 1 Epoch·메모리/시간 기준선, PyTorch DataLoader 2 Worker PID 실증; 실제 YOLO worker=0 확인, G1 baseline-01: exit=0, 67.251초, 40.148 images/s, DCGM GPU 사용률 관측 평균 10.2%(5개 샘플) | 개념·서술형 인출 완료(정량 미평가) | 로컬 실행 성공(정량 미평가) | 진행 중 (OFF-1 완료, ON 대기) | — | 2026-11-18 |
 | 03 | 03-01 | NVIDIA GPU 관측 | OFF-1 이론 완료 | collect-gpu-metrics.sh 작성·Bash 구문 검사 종료 코드 0; G1 DCGM Exporter GPU utilization/VRAM/temp 실제 출력 및 Prometheus 5개 샘플 보존; NVML 세부 지표는 미집계 | 서술형 인출 완료(정량 미평가) | Bash 구문 검증 성공(정량 미평가) | 진행 중 (OFF-1 완료, ON 대기) | — | 2026-11-19 |
-| 03 | 03-02 | 단일 GPU 서버 모니터링 | 선행 로컬 Prometheus·Grafana 학습 완료, GPU 통합 이론 시작 | Node Exporter→Prometheus→Grafana·TSDB 복원 선행 검증; G1 Node/DCGM Exporter + 로컬 Prometheus 대상 2개 up=1 확인; Grafana GPU 대시보드 실제 시각화는 미확인 | 미평가 | 미평가 | 진행 중 (OFF-1) | — | 2026-11-19 |
-| 03 | 03-03 | 학습 성능 기준선·병목 분석 | OFF-1 주요 이론 완료 | COCO 1000장 생성·S3 왕복 SHA256 검증·YOLO Benchmark --dry-run 성공; G1 실측 대기 | 서술형 인출 완료(정량 미평가) | 로컬 설정·데이터 검증 성공(정량 미평가) | 진행 중 (OFF-1 주요 검증 완료, ON 대기) | — | 2026-11-22 |
+| 03 | 03-02 | 단일 GPU 서버 모니터링 | 선행 로컬 Prometheus·Grafana 학습 완료, GPU 통합 이론 시작 | Node Exporter→Prometheus→Grafana·TSDB 복원 선행 검증; G1 Node/DCGM Exporter + 로컬 Prometheus 대상 2개 up=1 확인; Grafana GPU 대시보드 실제 시각화는 미확인 | 미평가 | 미평가 | 진행 중 (G1 수집 검증 완료, 대시보드 평가 대기) | — | 2026-11-24 |
+| 03 | 03-03 | 학습 성능 기준선·병목 분석 | OFF-1 주요 이론 완료 | COCO 1000장·S3 SHA256 검증·Dry Run 및 G1 실측 1회 성공(67.251초, 40.148 images/s); Batch/Worker 비교는 미수행 | 서술형 인출 완료(정량 미평가) | 로컬 설정·데이터 검증 성공(정량 미평가) | 진행 중 (G1 기준선 실측 완료, 비교 실험 대기) | — | 2026-11-24 |
 | 04 | 04-01 | EKS 네트워크·IAM 설계 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 04 | 04-02 | Terraform EKS·GPU Worker | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 04 | 04-03 | Device Plugin·GPU Job | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
@@ -34,7 +34,7 @@
 
 - **로컬에서 검증한 사항(2026-11-13 사용자 실행 로그):** WSL Ubuntu + uv, CPU PyTorch/YOLO11n COCO8 2 Epoch 학습, 중단 시점 optimizer 포함 체크포인트로 CPU 학습 재개, Docker CPU 이미지/마운트/일반 사용자 UID/GID·파일 보존, Dockerfile/스크립트 main 브랜치 반영.
 - **추가 로컬 검증(2026-11-17~18 사용자 실행 로그):** S3 중단 체크포인트 업로드·다운로드 SHA256 일치 및 CPU resume 실행, Node Exporter→Prometheus→Grafana 실습·CPU 부하 관측, Prometheus TSDB snapshot 별도 인스턴스 복원·과거 메트릭 확인, Docker Compose 재구성과 데이터 보존 검증, Lab 02-01 Linux 시스템 진단 스크립트 실행·GitHub 반영. [Lab 02-01 기록](records/v3/02-01.md).
-- **Lab 02-02 로컬 검증(2026-11-18 사용자 로그):** WSL IAM User로 S3 객체 조회, 체크포인트 다운로드·SHA256 일치, 업로드 후 재다운로드·SHA256 일치, 스크립트 2개 main 반영, 테스트용 업로드 객체 삭제. 실제 G1 Instance Profile·EBS 전송은 대기. [Lab 02-02 기록](records/v3/02-02.md).
+- **Lab 02-02 로컬 검증(2026-11-18 사용자 로그):** WSL IAM User로 S3 객체 조회, 체크포인트 다운로드·SHA256 일치, 업로드 후 재다운로드·SHA256 일치, 스크립트 2개 main 반영, 테스트용 업로드 객체 삭제. 2026-11-24 G1 Instance Profile 및 S3 데이터 SHA256 일치 검증 완료; EBS 전송 성능은 미측정. [Lab 02-02 기록](records/v3/02-02.md).
 - **Lab 02-03 로컬 검증(2026-11-18 사용자 로그):** YOLO CPU 1 Epoch 정상 완료, 요청 workers=2 vs YOLO 실사용 workers=0 구분, 전체 2:22.09·최대 RSS 1,965,272KB, PyTorch DataLoader 독립 검증에서 Worker PID 36042/36043 배치 분산 처리. [Lab 02-03 기록](records/v3/02-03.md).
 - **Lab 03-01 준비(2026-11-19 사용자 로그):** GPU Util·SM Active/Occupancy·Tensor Active·VRAM/DRAM·전력/온도 지표 학습, GPU CSV 수집 스크립트 생성 및 WSL `bash -n` 구문 검사 종료 코드 0. 이후 2026-11-24 G1에서 nvidia-smi, DCGM GPU 지표 실제 검증 완료. [Lab 03-01 기록](records/v3/03-01.md).
 - **Lab 03-02 로컬 검증(사용자 로그):** GPU Mock Exporter에서 Prometheus scrape·PromQL 값 42 확인, G1용 Prometheus YAML promtool 검사 및 별도 GPU Exporter Compose 설정 검사 성공. 2026-11-24 G1 DCGM 및 Node Exporter→로컬 Prometheus 실제 up=1 확인.
@@ -42,14 +42,14 @@
 - **2026-11-24 G1 추가 실측:** NVIDIA L4/Driver, Docker GPU, CUDA, YOLO 추론과 3 Epoch 학습, S3 Instance Profile과 무결성 검사, Prometheus/DCGM 관측, 결과 S3 6객체 보존, EC2 종료. [실측 보고서](../docs/reports/g1-baseline-2026-11-24.md).
 - **아직 미검증:** Batch·Worker 성능 비교, GPU OOM 및 중단 복구, 재현성 Terraform, G2 EKS GPU 노드, GPU 학습 컨테이너화.
 - **주의:** 2 Epoch 정상 완료 후 Ultralytics가 optimizer를 제거한 `last.pt`는 optimizer 상태를 포함하는 중단 체크포인트와 다르다. S3 resume 검증에는 후자를 사용한다.
-- **진도 기준:** 위 로컬 준비는 관련 Lab의 사전 단계 증거이며 실제 GPU 수행 여부/최종 Lab 완료 개수는 변경하지 않는다. 실습 내용을 사용자 로그 밖으로 확대 해석하지 않는다.
+- **진도 기준:** 로컬 준비는 관련 Lab의 사전 단계 증거이며 2026-11-24 G1 실측은 별도 보고했다. 전체 Lab 완료 개수는 통합 이론 평가/잔여 실습 전까지 보수적으로 유지한다. 실습 내용을 사용자 로그 밖으로 확대 해석하지 않는다.
 
 ## Phase 진행 현황
 
 | Phase | 전체 | 완료 | 상태 |
 |---|---:|---:|---|
 | 01 GPU 기초·단일 서버 | 3 | 1 | 01-01 완료, 01-03 GPU 실측 완료(이론 종합 평가 별도) |
-| 02 Linux 시스템·데이터 | 3 | 0 | 02-01·02-02·02-03 OFF-1 완료(실제 G1 실측 대기) |
+| 02 Linux 시스템·데이터 | 3 | 0 | 02-01 로컬 검증, 02-02 G1 IAM/S3 검증, 02-03 G1 학습 1회 완료; 상세 진단·비교 미수행 |
 | 03 단일 서버 모니터링·성능 | 3 | 0 | G1 Node/DCGM→Prometheus 및 YOLO 기준선 1회 실측; Lab 전체 평가는 별도 |
 | 04 EKS 확장 | 3 | 0 | 미시작 |
 | 05 클러스터 운영 | 3 | 0 | 미시작 |
