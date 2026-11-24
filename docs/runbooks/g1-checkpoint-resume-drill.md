@@ -7,14 +7,14 @@
 G1 학습 중 YOLO 학습 프로세스만 강제로 종료(SIGKILL)한 뒤,
 중간 Epoch 체크포인트를 S3에서 다시 다운로드해서 `resume=True`로 이어서 학습한다.
 
-1. YOLO11n 12 epochs, Batch 8, Workers 2, COCO Train 5,000 / Val 500으로 실행.
+1. YOLO11n 5 epochs, Batch 8, Workers 2, COCO Train 5,000 / Val 500으로 실행.
 2. `save_period=1`에 의해 기록된 Epoch 2 체크포인트(`epoch1.pt`, Epoch 인덱스 0-based)를 확인.
 3. PyTorch가 체크포인트 안의 `epoch` 정수와 `optimizer` 상태를 확인. (코드가 직접 생성한 **신뢰된** 체크포인트만 역직렬화.)
 4. 해당 파일을 `s3://shared-gpu-cluster-351889159717-ap-northeast-2-an/results/g1-resume/<session>/last.pt`에 업로드.
 5. 해당 학습 프로세스의 프로세스 그룹에 SIGKILL.
 6. 로컬 `last.pt` 삭제 및 Epoch 파일 삭제 → S3에서 `last.pt` 복구.
 7. 복구한 체크포인트의 Epoch·Optimizer 상태 검증 후 `YOLO(path).train(resume=True)`.
-8. 종료 코드와 `results.csv`, `training.log`, `resume.log`, `experiment.json` 확인.
+8. 종료 코드와 `results.csv`의 Epoch 행 수(최소 5개), `training.log`, `resume.log`, `experiment.json` 확인.
 
 **RPO:** 마지막 저장된 Epoch 이후 작업량은 손실 가능. **RTO:** SIGKILL 직후부터 실제 다음 Epoch 학습까지의 시간은 로그를 분석해 별도로 측정해야 함. 이 코드는 RTO를 자동 산출하지 않음.
 
