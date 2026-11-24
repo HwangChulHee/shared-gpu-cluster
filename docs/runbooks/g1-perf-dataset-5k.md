@@ -122,10 +122,11 @@ python scripts/g1/run-performance-suite.py \
 
 - 위 명령은 **실제 GPU 학습 비용이 발생**한다. `--dry-run`은 GPU 학습 및 디스크 쓰기 없음.
 - 6개 Case별 로그, YOLO 체크포인트, `summary.json`과 세션 전체 `comparison.csv`를 생성.
+- 별도 `collect-host-metrics.py` 프로세스가 각 Case의 `host-metrics.csv`에 5초 간격으로 GPU Util, VRAM, 온도, 전력, 호스트 CPU·RAM 기록. `nvidia-smi`가 없는 로컬 WSL에서는 `--dry-run`만 실행한다. 실제 G1에서는 GPU 상태를 먼저 검사한다. 디스크 I/O와 Prometheus 연동은 아직 미구현.
 - Case가 실패하면 즉시 중단하고, 이후 Case를 실행하지 않음.
 - `--upload-s3`은 성공한 **각 Case의 결과**를 `results/g1-comparisons/<session>/<case>/`에 업로드. 요약 CSV는 로컬에 보존되므로 별도 업로드 필요.
 - 이전 `baseline-01` 데이터는 덮어쓰지 않음. **매 세션마다 고유한 `--session`을 사용할 것.**
-- 5초 GPU/CPU 지표 수집과 Batch/Workers 자동 비교 실행을 연결하는 작업은 **다음 단계**. 스위트 GPU 실측은 아직 미검증.
+- 5초 GPU/CPU/RAM 지표 기록 코드를 스위트에 연결했지만 **실제 G1에서 통합 검증되지 않았다**. Prometheus 쿼리 결과와 비교하거나 디스크 I/O를 수집하는 작업은 후속 단계.
 - GPU 실험 후 EC2는 자동 종료되지 않으므로 수동 정리·비용 검증 필수.
 
 [기존 G1 실측 보고서](../reports/g1-baseline-2026-11-24.md) · [데이터 생성기](../../scripts/prepare-coco-perf-dataset.py) · [Benchmark Runner](../../scripts/run-yolo-benchmark.py).
