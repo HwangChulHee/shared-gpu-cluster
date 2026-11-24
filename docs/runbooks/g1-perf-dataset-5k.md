@@ -1,6 +1,6 @@
 # G1 GPU OFF — COCO 2017 성능 비교 데이터셋 (5,000 / 500)
 
-> **준비 상태 (2026-11-24): 코드 작성 완료, 실제 COCO 5,500장 다운로드·압축·S3 업로드와 G1 GPU 재측정은 미실행.** 기존 900/100 Dataset 및 `baseline-01` 결과는 그대로 보존한다.
+> **검증 상태 (2026-11-24): 사용자 WSL에서 5,500장 생성, 파일 수 5,000/500과 라벨 수 검증, Benchmark Dry Run, S3 업로드·재다운로드 SHA256 검증 완료. G1에서 5k 학습 및 자동 실험은 아직 미실행.** 기존 900/100 Dataset 및 `baseline-01` 결과는 보존한다.
 
 ## 설계
 
@@ -8,7 +8,7 @@
 - Validation **500장**: 독립된 공식 `val2017`에서 seed=43으로 선택.
 - YOLO80 클래스 매핑과 bbox 정규화, `images/{train,val}`, `labels/{train,val}`, `data.yaml`, `manifest.json` 출력.
 - `manifest.json`에 원본 annotation ZIP SHA256, seed, 이미지별 ID·SHA256 저장.
-- `train2017.zip` 원본 전체(대용량)를 받지 않고, COCO 공개 서버 `images.cocodataset.org`에서 **선택된 이미지 5,500장만 HTTPS 다운로드** (기본 최대 8개 동시). 다운로드 실패 시 최대 4회 재시도; 중간 실패 후 같은 명령을 다시 실행하면 이미 다운로드된 JPEG를 재사용한다.
+- `train2017.zip` 원본 전체(대용량)를 받지 않고, 공식 COCO 이미지 버킷의 S3 HTTPS 경로(`s3.amazonaws.com/images.cocodataset.org/`)에서 **선택된 이미지 5,500장만 다운로드** (기본 최대 8개 동시). 다운로드 실패 시 최대 4회 재시도; 중간 실패 후 같은 명령을 다시 실행하면 이미 다운로드된 JPEG를 재사용한다.
 - **성능 측정용**. 공식 COCO 정확도 검증이나 대표적 mAP 결과를 주장하지 않는다.
 
 ## 1. 로컬 WSL에서 annotation 원본 확인
@@ -40,7 +40,7 @@ python3 scripts/prepare-coco-perf-dataset.py \
   --train-count 5000 --val-count 500 --seed 42 --download-workers 8
 ```
 
-다운로드는 로컬 디스크/네트워크 환경에 따라 시간이 걸릴 수 있다. 완료 전에는 `manifest.json`이 생성되지 않으므로 성공으로 표시하지 않는다.
+**사용자 실행 성공 (2026-11-24):** 5,500장 다운로드·라벨 변환 완료. `manifest.json` SHA256: `aaa0050c8cf3337160f48f8a2f1c310203ca37ee2f79aa087f509a0535f14642`. COCO 이미지 전용 도메인은 TLS 인증서 불일치가 발생해 S3 정식 호스트 경유 경로로 수정했다.
 
 ## 4. CPU에서 파일 수·Dry Run 점검
 
@@ -73,7 +73,7 @@ aws s3 ls s3://shared-gpu-cluster-351889159717-ap-northeast-2-an/datasets/coco20
   --region ap-northeast-2
 ```
 
-다운로드 및 SHA256 재검증까지 하면 S3 객체 무결성이 확정된다. **업로드가 되었다고 실제 새 GPU가 검증된 것은 아니다.**
+**사용자 실행 검증 완료:** 로컬 압축파일과 S3 객체 크기 `894,484,192` bytes. S3 재다운로드 파일 SHA256 검증 `OK` — `6c354ad5753fbc91b7016ea51ed430bcef960eeda2a7175aac30998d89c54e39`. **실제 새 GPU 학습은 아직 검증하지 않았다.**
 
 ## 6. 다음 G1 GPU ON
 
@@ -84,12 +84,48 @@ aws s3 ls s3://shared-gpu-cluster-351889159717-ap-northeast-2-an/datasets/coco20
 cd ~/shared-gpu-cluster
 aws s3 cp s3://shared-gpu-cluster-351889159717-ap-northeast-2-an/datasets/coco2017-perf-5k.tar.gz \
   /tmp/coco2017-perf-5k.tar.gz --region ap-northeast-2
-# 여기서 OFF에서 기록한 실제 archive SHA256을 sha256sum -c 로 확인
+echo '6c354ad5753fbc91b7016ea51ed430bcef960eeda2a7175aac30998d89c54e39  /tmp/coco2017-perf-5k.tar.gz' | sha256sum -c -
 tar -xzf /tmp/coco2017-perf-5k.tar.gz -C datasets/
 source ~/gpu-venv/bin/activate
 python scripts/run-yolo-benchmark.py --dataset datasets/coco2017-perf-5k --dry-run
 ```
 
-실제 학습은 실험 조건(5초 모니터링 및 로컬 출력 백업)이 준비된 이후에만 시작한다. Batch/Workers/Cache 자동 비교 스크립트는 **별도의 다음 작업**이다.
+## 7. Baseline / Batch / Workers 자동 실행 (GPU ON에서만)
+
+`scripts/g1/run-performance-suite.py`는 아래 6개 설정을 **순서대로** 실행한다.
+
+| Case | Batch | Workers | Epoch |
+|---|---:|---:|---:|
+| baseline-b8-w2 | 8 | 2 | 3 |
+| batch-b16-w2 | 16 | 2 | 3 |
+| batch-b32-w2 | 32 | 2 | 3 |
+| workers-b8-w0 | 8 | 0 | 3 |
+| workers-b8-w4 | 8 | 4 | 3 |
+| workers-b8-w8 | 8 | 8 | 3 |
+
+먼저 로컬 WSL에서, 데이터셋이 있는 상태로 스위트 구성만 검증:
+
+```bash
+python3 scripts/g1/run-performance-suite.py --session preflight-local --dry-run
+```
+
+실제 **G1 GPU ON**에서는 Bootstrap·CUDA·Dataset SHA 검증 이후 아래 명령으로 학습 실행:
+
+```bash
+cd ~/shared-gpu-cluster
+source ~/gpu-venv/bin/activate
+python scripts/g1/run-performance-suite.py \
+  --dataset datasets/coco2017-perf-5k \
+  --session g1-20261125-a \
+  --upload-s3
+```
+
+- 위 명령은 **실제 GPU 학습 비용이 발생**한다. `--dry-run`은 GPU 학습 및 디스크 쓰기 없음.
+- 6개 Case별 로그, YOLO 체크포인트, `summary.json`과 세션 전체 `comparison.csv`를 생성.
+- Case가 실패하면 즉시 중단하고, 이후 Case를 실행하지 않음.
+- `--upload-s3`은 성공한 **각 Case의 결과**를 `results/g1-comparisons/<session>/<case>/`에 업로드. 요약 CSV는 로컬에 보존되므로 별도 업로드 필요.
+- 이전 `baseline-01` 데이터는 덮어쓰지 않음. **매 세션마다 고유한 `--session`을 사용할 것.**
+- 5초 GPU/CPU 지표 수집과 Batch/Workers 자동 비교 실행을 연결하는 작업은 **다음 단계**. 스위트 GPU 실측은 아직 미검증.
+- GPU 실험 후 EC2는 자동 종료되지 않으므로 수동 정리·비용 검증 필수.
 
 [기존 G1 실측 보고서](../reports/g1-baseline-2026-11-24.md) · [데이터 생성기](../../scripts/prepare-coco-perf-dataset.py) · [Benchmark Runner](../../scripts/run-yolo-benchmark.py).
