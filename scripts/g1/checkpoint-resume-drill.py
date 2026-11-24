@@ -49,7 +49,7 @@ def main():
     p.add_argument("--output", type=Path, default=Path("artifacts/g1-resume"))
     p.add_argument("--bucket", default="shared-gpu-cluster-351889159717-ap-northeast-2-an")
     p.add_argument("--region", default="ap-northeast-2")
-    p.add_argument("--epochs", type=int, default=12)
+    p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--stop-after-epoch", type=int, default=2,
                    help="Interrupt after this many completed epochs have been checkpointed")
     p.add_argument("--timeout-seconds", type=int, default=1800)
@@ -149,6 +149,17 @@ def main():
         results = run_dir / "results.csv"
         if not results.is_file():
             raise RuntimeError("Resume finished but results.csv missing")
+        # Ultralytics adds one results row per completed epoch. A nonempty CSV
+        # alone cannot prove that the requested training finished.
+        import csv
+        with results.open(newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            epoch_rows = list(reader)
+        report["results_epoch_rows"] = len(epoch_rows)
+        if len(epoch_rows) < a.epochs:
+            raise RuntimeError(
+                f"Insufficient epoch rows after resume: {len(epoch_rows)} < {a.epochs}"
+            )
         report["status"] = "resume_completed"
         report["completed_utc"] = stamp()
         print("[OK] S3 checkpoint restored and resumed training completed", flush=True)
