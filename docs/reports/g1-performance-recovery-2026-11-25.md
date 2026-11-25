@@ -137,6 +137,6 @@ AWS 종료 증거:
 
 **아직 검증하지 않은 것:** 여러 번 반복했을 때의 차이, 정확도에 미치는 영향, 전체 RTO, 정확한 AWS 비용, 네트워크/스토리지 병목, 완전 자동 Bootstrap 종료, Kubernetes GPU 스케줄링·노드 장애.
 
-GPU OFF 상태에서 S3의 8개 `host-metrics.csv` 및 `summary.json`을 모두 다운로드·집계했다. 다음에는 분석 CSV의 전체 CPU/RAM/온도/전력 수치를 확장 분석하고, 필요하면 `resume.log`로 RTO 구간을 재구성한다. 이후 G2(EKS GPU Worker) 및 Terraform 재현 실험을 **별도** 설계한다.
+GPU OFF 상태에서 S3의 8개 `host-metrics.csv` 및 `summary.json`을 모두 다운로드·집계했다. 다음에는 분석 CSV의 전체 CPU/RAM/온도/전력 수치를 확장 분석하고, 필요하면 `resume.log`로 RTO 구간을 재구성한다. **G1 실험 범위는 여기서 종료한다.** Batch 64/128/256은 G1에서 미측정이며 재기동하지 않는다. G2(EKS GPU Worker)에서 동일 단일 GPU Pod 기준선 Batch 32를 다시 실행한 뒤 Batch 64→128→256의 메모리 수용 범위와 처리량 포화를 검증한다. OOM도 유효한 측정 결과로 남기되, GPU 노드 2대의 VRAM이 단일 Pod에 자동 합산되는 것으로 가정하지 않는다. 상세 조건은 [G2 대형 Batch 실험 계획](../test-plan.md#t02--대형-batch-확장-실험-g1에서-이관-g2-예정) 참조. Terraform 재현 실험은 별도 설계한다.
 
 관련 문서: [첫 G1 기준선(11/24)](g1-baseline-2026-11-24.md) · [5k 데이터셋 Runbook](../runbooks/g1-perf-dataset-5k.md) · [OOM Runbook](../runbooks/g1-oom-drill.md) · [Resume Runbook](../runbooks/g1-checkpoint-resume-drill.md).
