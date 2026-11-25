@@ -2,7 +2,7 @@
 
 > 저장소 URL은 기존 `shared-gpu-cluster`를 유지합니다. **목표는 GPU 공유 서비스 개발이 아니라 Linux GPU 서버 구축·운영 역량을 증명하고, 그 환경을 Kubernetes로 확장하는 것**입니다.
 
-**상태 (2026-11-25):** 7 Phase / 21 Lab. 서울 리전 On-Demand G/VT **8 vCPU 쿼터** 확인. **G1 L4 GPU 8개 성능 실험(Batch·Workers), CUDA OOM 복구, S3 Checkpoint 학습 재개, 증거 S3 백업 및 EC2·루트 EBS 정리 완료**. EKS GPU Worker(G2) 및 Terraform GPU 재현 실측은 미수행. [11/25 G1 통합 실측 보고서](docs/reports/g1-performance-recovery-2026-11-25.md).
+**상태 (2026-11-25):** 7 Phase / 21 Lab. 서울 리전 On-Demand G/VT **8 vCPU 쿼터** 확인. **G1 L4 GPU 8개 성능 실험(Batch·Workers), CUDA OOM 복구, S3 Checkpoint 학습 재개, 증거 S3 백업 및 EC2·루트 EBS 정리 완료**. **Batch 64/128/256 한계 측정은 G2로 이관**했으며, EKS GPU Worker(G2) 및 Terraform GPU 재현 실측은 미수행. [11/25 G1 통합 실측 보고서](docs/reports/g1-performance-recovery-2026-11-25.md).
 
 ## 프로젝트 시나리오
 
@@ -46,7 +46,7 @@ GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, 
 
 - [21 Lab 단계별 커리큘럼](docs/curriculum.md) · [21개 Lab 교안](docs/labs/README.md)
 - [단일 GPU → Kubernetes 확장 아키텍처](docs/architecture.md)
-- [사례 기반 실험 계획](docs/test-plan.md) · [공식·실무 근거](docs/references.md)
+- [사례 기반 실험 계획 (G1 완료·G2 Batch 64/128/256 예정)](docs/test-plan.md) · [공식·실무 근거](docs/references.md)
 - **[G1 5,000/500 COCO 데이터셋 준비 — GPU OFF](docs/runbooks/g1-perf-dataset-5k.md)** · [생성 스크립트](scripts/prepare-coco-perf-dataset.py)
 - **[G1 원커맨드 설치 (드라이버·CUDA 성공, 모니터링 초기 준비 실패 후 수동 확인; 전체 성공 마커 미확인)](docs/runbooks/g1-one-command-bootstrap.md)** · [G1 설치 스크립트](scripts/g1/bootstrap.sh)
 - **[2026-11-25 G1 성능 비교 8회·OOM·Checkpoint 복구 통합 보고서](docs/reports/g1-performance-recovery-2026-11-25.md)** · [2026-11-24 초기 기준선](docs/reports/g1-baseline-2026-11-24.md)
