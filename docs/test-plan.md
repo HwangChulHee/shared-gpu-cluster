@@ -1,6 +1,6 @@
 # Linux GPU 서버 → EKS 확장: 성능·운영 검증 계획
 
-> **모두 계획. 실제 GPU 실행 및 장애 주입 전**. 공개 사례는 운영 사고, 성능 실험, 공식 가이드 유형으로 구분하며 실험 결과를 차용하지 않습니다.
+> **상태 (2026-11-25): G1 단일 L4 GPU 성능 비교 8회·통제 CUDA OOM·S3 Checkpoint 재개 실측 완료 및 인스턴스 종료. G2(EKS GPU Worker)는 계획 단계.** 실제 관측은 [G1 통합 보고서](reports/g1-performance-recovery-2026-11-25.md)에서 확인하며, 공개 사례의 결과를 자체 실측으로 차용하지 않습니다.
 
 **실제 실행 순서:** Phase 06 번호 때문에 GPU 서버를 재가동하지 않습니다. **F01 CUDA OOM·T01 데이터 로딩 실험은 G1의 01–03 Lab 실습 종료 전에**, **F02 장치 인식·F03 Worker 중단은 G2의 04–05 Lab 종료 전에** 수행합니다. 07-01의 Terraform 재현·삭제 증거도 각 환경을 정리할 때 함께 확보합니다.
 
@@ -40,6 +40,8 @@
 
 ## G1 실험
 
+**실제 실행 결과(2026-11-25):** Batch 8/16/32, Workers 0/2/4/8의 통제된 8개 조합을 단일 L4에서 검증했다. CUDA VRAM 할당형 OOM 및 학습 프로세스 강제 종료 후 S3 Checkpoint Resume를 완료했다. 원시 메트릭·실험 로그는 S3에 보존하고 인스턴스를 종료했다. 아래 일부 설계 목표(디스크 I/O, 정확한 단계별 시간 분해, 반복 횟수 등)는 완료 증거가 없는 **후속 검증 항목**이다. [통합 보고서](reports/g1-performance-recovery-2026-11-25.md).
+
 ### B01 — NVIDIA Driver/컨테이너/YOLO 계층 검증
 `nvidia-smi` → GPU 컨테이너 → `torch.cuda` 실제 계산 → YOLO 학습. 단계별 정상/실패 출력, 프로세스·GPU 메모리·비용 기록.
 
@@ -56,6 +58,18 @@ Batch 상승 시 VRAM 증가/실패 로그와 CPU Linux OOM 구분. 안전하게
 [AWS 실제 성능 실험](references.md) 참고. 02-03/03-03에서 정한 정상 기준선과, CPU Worker/캐시/입력 경로를 통제 변경한 반복 실행을 비교. 처리량·Epoch 시간 개선을 가정하지 않는다.
 
 ## G2 실험
+
+### T02 — 대형 Batch 확장 실험 (G1에서 이관, G2 예정)
+
+**의도:** G1에서 Batch 32 / Workers 2(130.3 train images/s, VRAM 최대 6,728MiB)까지 실측했고, 추가 확장 한계는 GPU를 다시 켜지 않고 G2에서 살핀다.
+
+- 동일 YOLO11n, 동일 COCO 5,000/500, imgsz=640, seed=42, epochs=3을 비교 기준으로 사용. Batch 32 / Workers 2를 기준선으로 하고 Batch **64 → 128 → 256**을 순차 시험한다. 우선 Workers 2로 고정해 Batch만 변경한다.
+- 각 조건에서 end-to-end 처리량, 단계별 시간 가능하면, GPU 사용률, VRAM 사용률·최대, CPU/RAM, OOM 예외, 정상 완료 여부를 기록한다. VRAM 추정치를 실측으로 오인하지 않는다.
+- Batch가 커질수록 VRAM 부족 가능성이 증가한다. **Batch 128/256이 L4 한 장에서 성공한다는 보장은 없으며** CUDA OOM 발생은 유효한 결과로 기록한다. 기존 G1에서의 512MiB tensor 할당 OOM과 실제 YOLO Batch OOM은 구분한다.
+- G2는 GPU Worker 2대 구성이다. **단일 YOLO Pod의 단일 GPU Batch가 두 GPU VRAM을 자동 합산하는 것은 아니다.** 동일 단일 GPU를 지정해 비교하며 다른 노드·Job의 자원 경합을 피한다. 2개 GPU 분산 학습/Gradient Accumulation은 범위 밖이다.
+- G1 호스트 venv와 G2 컨테이너, 드라이버, 파일 캐시 및 Job 실행 환경 차이가 있으므로 양 환경의 절대 처리량을 직접 동일 조건이라고 단정하지 않는다. G2 내부에서 Batch 32 기준선부터 다시 측정한다.
+- Batch 256에서 OOM이 예상되면 작은 Batch부터 진행하고, 오류 발생 시 후속 대형 Batch 실행을 중단하며 CUDA 자원 반환·Pod 상태·로그를 검증한다. 비용 상한과 S3 백업·클러스터 종료 게이트를 먼저 구성한다.
+
 
 ### K01 — GPU Node·Job 정상 배치
 GPU Worker 2대의 `nvidia.com/gpu` 보고와 동일 YOLO Job 실행. Job 3개 제출하여 2개 실행·3번째 대기 후 반환 관측. Node Ready ≠ CUDA 성공.
