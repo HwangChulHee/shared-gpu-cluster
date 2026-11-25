@@ -26,6 +26,8 @@ def main():
     p.add_argument("--session", required=True, help="Unique session identifier, e.g. g1-20261125-a")
     p.add_argument("--output", type=Path, default=Path("artifacts/g1-comparisons"))
     p.add_argument("--epochs", type=int, default=3)
+    p.add_argument("--only-case", choices=[c[0] for c in CASES], help="Run one case first for staged validation")
+    p.add_argument("--exclude-case", choices=[c[0] for c in CASES], help="Run remaining cases in a separate session")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--upload-s3", action="store_true", help="Upload each case to S3 after it succeeds")
     p.add_argument("--no-host-metrics", action="store_true", help="Disable per-case GPU host telemetry")
@@ -64,17 +66,24 @@ def main():
     if check.returncode:
         raise SystemExit(check.returncode)
 
-    print("\n=== Planned cases (sequential, no parallel GPU jobs) ===", flush=True)
-    for name, batch, workers in CASES:
+    if args.only_case and args.exclude_case:
+        p.error("--only-case and --exclude-case cannot be combined")
+    selected_cases = [
+        case for case in CASES
+        if (not args.only_case or case[0] == args.only_case)
+        and (not args.exclude_case or case[0] != args.exclude_case)
+    ]
+    print("\\n=== Planned cases (sequential, no parallel GPU jobs) ===", flush=True)
+    for name, batch, workers in selected_cases:
         print(f"{name}: batch={batch}, workers={workers}, epochs={args.epochs}", flush=True)
     if args.dry_run:
-        print("[DRY-RUN] Validated dataset and six configurations; no output, GPU work, or S3 uploads.")
+        print(f"[DRY-RUN] Validated dataset and {len(selected_cases)} configurations; no output, GPU work, or S3 uploads.")
         return
 
     session_dir.mkdir(parents=True)
     rows = []
     table = session_dir / "comparison.csv"
-    for name, batch, workers in CASES:
+    for name, batch, workers in selected_cases:
         case_output = session_dir / name
         cmd = [
             sys.executable, str(runner), "--dataset", str(dataset),
