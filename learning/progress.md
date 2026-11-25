@@ -1,6 +1,6 @@
 # AI/GPU 인프라 실습 진도 — Linux 서버 우선 21 Lab
 
-> **2026-11-13 재편:** G1 Linux 서버 → 데이터·시스템 → 단일 서버 관측·성능 → G2 EKS 확장 → 클러스터 운영 → 실제 사례 검증. [번호 대응표](../docs/migration-2026-11-13.md). 2026-11-24 **G1 NVIDIA L4에서 YOLO 실측 1회 완료 및 인스턴스 종료**. EKS 실측은 아직 0건. [실측 보고서](../docs/reports/g1-baseline-2026-11-24.md).
+> **2026-11-13 재편:** G1 Linux 서버 → 데이터·시스템 → 단일 서버 관측·성능 → G2 EKS 확장 → 클러스터 운영 → 실제 사례 검증. [번호 대응표](../docs/migration-2026-11-13.md). 2026-11-25 **G1 NVIDIA L4에서 Batch/Workers 성능 8개 Case·CUDA OOM·S3 Checkpoint Resume 실측, S3 원본 저장·인스턴스 종료 및 로컬 메트릭 집계 완료**. 2026-11-26 **G2 Lab 04-01 네트워크/권한 이론 진행, 04-02 네트워크 Terraform 코드 작성(로컬 검증 출력 미확인)**. EKS 실측은 아직 0건. [G1 실측](../docs/reports/g1-performance-recovery-2026-11-25.md) · [G2 인수인계](../docs/handoffs/g2-terraform-2026-11-26.md).
 >
 > **AWS 확정 사실:** 서울 리전 Running On-Demand G and VT instances **8 vCPU 승인 및 적용 확인** (AWS 메일 + `aws service-quotas get-service-quota --region ap-northeast-2 --service-code ec2 --quota-code L-DB2E81BA`, `Value: 8.0`). `g6.xlarge` **인스턴스 타입 제공 AZ는 2a/2c/2d**, AWS Pricing API로 조회한 서울 Linux On-Demand EC2 컴퓨팅 단가는 **$0.9896/시간**이다. AWS Pricing API에서 gp3 **$0.0912/GB-month**, 추가 IOPS **$0.0057/IOPS-month**, 추가 Throughput **$0.0456/MiBps-month**를 확인했다. **G1 g6.xlarge 실생성 및 종료 성공**(ap-northeast-2a, 2026-11-24). 실제 청구액과 향후 AZ 재할당 용량은 별도 확인이 필요하다.
 
@@ -15,8 +15,8 @@
 | 03 | 03-01 | NVIDIA GPU 관측 | OFF-1 이론 완료 | collect-gpu-metrics.sh 작성·Bash 구문 검사 종료 코드 0; G1 DCGM Exporter GPU utilization/VRAM/temp 실제 출력 및 Prometheus 5개 샘플 보존; NVML 세부 지표는 미집계 | 서술형 인출 완료(정량 미평가) | Bash 구문 검증 성공(정량 미평가) | 진행 중 (OFF-1 완료, ON 대기) | — | 2026-11-19 |
 | 03 | 03-02 | 단일 GPU 서버 모니터링 | 선행 로컬 Prometheus·Grafana 학습 완료, GPU 통합 이론 시작 | Node Exporter→Prometheus→Grafana·TSDB 복원 선행 검증; G1 Node/DCGM Exporter + 로컬 Prometheus 대상 2개 up=1 확인; Grafana GPU 대시보드 실제 시각화는 미확인 | 미평가 | 미평가 | 진행 중 (G1 수집 검증 완료, 대시보드 평가 대기) | — | 2026-11-24 |
 | 03 | 03-03 | 학습 성능 기준선·병목 분석 | OFF-1 주요 이론 완료 | COCO 1000장·S3 SHA256 검증·Dry Run 및 G1 실측 1회 성공(67.251초, 40.148 images/s); Batch/Worker 비교는 미수행 | 서술형 인출 완료(정량 미평가) | 로컬 설정·데이터 검증 성공(정량 미평가) | 진행 중 (G1 기준선 실측 완료, 비교 실험 대기) | — | 2026-11-24 |
-| 04 | 04-01 | EKS 네트워크·IAM 설계 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
-| 04 | 04-02 | Terraform EKS·GPU Worker | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
+| 04 | 04-01 | EKS 네트워크·IAM 설계 | EKS 제어면/노드/Private API, NAT 1개+S3 Gateway Endpoint, IAM/Pod Identity 학습 진행 | 네트워크 설계 GitHub 문서 반영, Terraform plan/실제 EKS 미검증 | 부분 인출 | 미평가 | 진행 중 (OFF-1) | — | 2026-11-26 |
+| 04 | 04-02 | Terraform EKS·GPU Worker | Managed Node Group/ASG, GPU 자원 등록, EKS 구성 개요 학습 | `infra/g2` 네트워크 Terraform 5개 파일 GitHub 작성; WSL init/fmt/validate 결과 미확인, EKS/Node Group 코드 미작성 | 부분 인출 | 미평가 | 진행 중 (OFF-1 코드 작성, 검증 대기) | — | 2026-11-26 |
 | 04 | 04-03 | Device Plugin·GPU Job | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 05 | 05-01 | GPU Job 스케줄링 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
 | 05 | 05-02 | GPU Worker 증감·운영 | 미시작 | 미시작 | 미평가 | 미평가 | 미시작 | — | — |
@@ -40,7 +40,9 @@
 - **Lab 03-02 로컬 검증(사용자 로그):** GPU Mock Exporter에서 Prometheus scrape·PromQL 값 42 확인, G1용 Prometheus YAML promtool 검사 및 별도 GPU Exporter Compose 설정 검사 성공. 2026-11-24 G1 DCGM 및 Node Exporter→로컬 Prometheus 실제 up=1 확인.
 - **Lab 03-03 OFF-1(2026-11-21~22 사용자 로그):** COCO 1,000장(Train 900/Val 100), manifest SHA256 확인; 159,497,259 bytes 아카이브 S3 왕복 SHA256 일치; Python 구문 검사 및 YOLO Benchmark --dry-run 성공. [기록](records/v3/03-03.md).
 - **2026-11-24 G1 추가 실측:** NVIDIA L4/Driver, Docker GPU, CUDA, YOLO 추론과 3 Epoch 학습, S3 Instance Profile과 무결성 검사, Prometheus/DCGM 관측, 결과 S3 6객체 보존, EC2 종료. [실측 보고서](../docs/reports/g1-baseline-2026-11-24.md).
-- **아직 미검증:** Batch·Worker 성능 비교, GPU OOM 및 중단 복구, 재현성 Terraform, G2 EKS GPU 노드, GPU 학습 컨테이너화.
+- **2026-11-25 G1 최종 실측:** COCO 5,000/500, Batch/Workers 8개 Case 전부 exit 0 + GPU 지표 5초 CSV 수집, Batch 8/Workers 2 약 88.0장/s → Batch 32/Workers 2 약 130.3장/s; 통제 CUDA OOM·VRAM 반환; S3 Checkpoint SIGKILL 후 Resume 5 Epoch 완주, S3 백업 확인 및 EC2 `i-0361567aa4f1ce189` terminated. [최종 보고서](../docs/reports/g1-performance-recovery-2026-11-25.md).
+- **2026-11-26 G2 현재:** 04-01 EKS VPC/IAM/Pod Identity 이론·혼합 egress 설계, 04-02 Managed Node Group·ASG 이론과 `infra/g2` VPC/NAT/S3 Endpoint 코드 작성. 아직 로컬 Terraform 명령 결과 및 AWS 생성 없음. [인수인계](../docs/handoffs/g2-terraform-2026-11-26.md).
+- **아직 미검증:** Terraform 네트워크 로컬 init/fmt/validate/plan, Terraform G1 별도 재현, G2 EKS/GPU Nodes, 실제 GPU 학습 컨테이너화 및 Kubernetes Job/장애 대응. G1 Batch 64/128/256은 미측정으로 G2에 이관.
 - **주의:** 2 Epoch 정상 완료 후 Ultralytics가 optimizer를 제거한 `last.pt`는 optimizer 상태를 포함하는 중단 체크포인트와 다르다. S3 resume 검증에는 후자를 사용한다.
 - **진도 기준:** 로컬 준비는 관련 Lab의 사전 단계 증거이며 2026-11-24 G1 실측은 별도 보고했다. 전체 Lab 완료 개수는 통합 이론 평가/잔여 실습 전까지 보수적으로 유지한다. 실습 내용을 사용자 로그 밖으로 확대 해석하지 않는다.
 
@@ -51,11 +53,11 @@
 | 01 GPU 기초·단일 서버 | 3 | 1 | 01-01 완료, 01-03 GPU 실측 완료(이론 종합 평가 별도) |
 | 02 Linux 시스템·데이터 | 3 | 0 | 02-01 로컬 검증, 02-02 G1 IAM/S3 검증, 02-03 G1 학습 1회 완료; 상세 진단·비교 미수행 |
 | 03 단일 서버 모니터링·성능 | 3 | 0 | G1 Node/DCGM→Prometheus 및 YOLO 기준선 1회 실측; Lab 전체 평가는 별도 |
-| 04 EKS 확장 | 3 | 0 | 미시작 |
+| 04 EKS 확장 | 3 | 0 | 04-01 설계·이론 진행, 04-02 네트워크 Terraform 코드 작성·로컬 검증 대기 |
 | 05 클러스터 운영 | 3 | 0 | 미시작 |
 | 06 사례 기반 검증 | 4 | 0 | 미시작 |
 | 07 재현성·보고서 | 2 | 0 | 미시작 |
-| **합계** | **21** | **1** | **G1 GPU 실측 1회 완료; Lab 통합 완료 기준 보수적 유지** |
+| **합계** | **21** | **1** | **G1 8개 성능/2개 장애 실험 완료; Lab 통합 평가 미진행은 별도 보수적 표기, G2 OFF-1 진행** |
 
 ## 보존 중인 과거 학습·평가
 
@@ -80,7 +82,7 @@
 
 1. **Lab 01-02**: 쿼터 8 vCPU, g6.xlarge 제공 AZ 2a/2c/2d, 서울 Linux On-Demand EC2 단가 $0.9896/h까지 확인. gp3 세 단가 확인. 다음으로 EBS 용량 확정·Public IPv4/S3 등 나머지 비용, 실제 Capacity와 AMI/Driver/컨테이너·CPU/RAM 제약, **콘솔 수동 구축·삭제 계획**을 확정. Terraform 재현은 07-01에서 별도 검증.
 2. **Lab 01-03**: G1 NVIDIA/CUDA/YOLO 실측 완료. 통합 이론 평가와 학습 컨테이너화 여부는 후속 판단.
-3. **G1 첫 세션:** 2026-11-24 기준선 1회·모니터링·S3 보존·인스턴스 종료 완료. **06-01 OOM·06-02 데이터 로딩 비교·07-01 Terraform 재현은 미수행**이므로 별도 비용/실행 게이트를 거친다.
-4. **G2 세션:** Phase 04–05와 **06-03 GPU 인식·06-04 Worker 장애**를 같은 EKS 환경에서 수행하고 07-01 G2 정리 후 종료.
+3. **G1 실험 종료:** 2026-11-25 성능 비교 8회, CUDA OOM, Checkpoint 기반 학습 재개, S3 백업, 메트릭 집계, EC2 종료까지 완료. 단 G1 Terraform apply/destroy 재현은 미수행이며, 첫 Bootstrap의 자동 성공 마커는 미확인. 향후 G1 GPU를 단지 Batch 추가 측정 목적으로 재생성하지 않는다.
+4. **현재 다음 작업:** 로컬 WSL `git pull --ff-only`, `cd infra/g2`, `terraform version`, `terraform init -backend=false`, `terraform fmt -check`, `terraform validate` 실행 후 출력 확인. 그다음 Cluster IAM Role/EKS/SG, Node Groups, Pod Identity, Job·관측·비용/삭제 게이트 완성. 실제 `terraform apply`는 이 사전 검증 완료 전 금지. Phase 05 및 06-03/04는 G2 GPU ON에서 수행.
 
 [학습 규칙](GPT_GUIDE.md) · [현재 커리큘럼](../docs/curriculum.md) · [이관표](../docs/migration-2026-11-13.md)
