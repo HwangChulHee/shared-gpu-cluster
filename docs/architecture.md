@@ -1,6 +1,6 @@
 # AI/GPU 인프라 아키텍처 — Linux 서버에서 클러스터로
 
-> **가상 AI 연구팀 운영 요구사항**을 바탕으로 한 설계. AWS GPU 실행/성능/장애 검증은 아직 미실행.
+> **가상 AI 연구팀 운영 요구사항**을 바탕으로 한 설계. G1 GPU 실측·성능 비교·장애 복구 완료(2026-11-25); G2 EKS/GPU는 설계 단계.
 
 ## 1. 먼저 운영할 단일 Linux GPU 서버 (G1)
 
@@ -47,6 +47,34 @@
 - GPU 할당과 GPU 연산 사용률은 다르다. `Node Ready`·GPU Capacity·CUDA 계산·YOLO 학습 성공은 각각 다른 수준의 검증이다.
 - GPU 2대는 **동시 작업·대기·노드 단위 장애**의 최소 랩 조건이며 다중 AZ 고가용성·무중단을 보장하지 않는다.
 - Kueue admission/borrowing/preemption은 실무 사례 참고·선택 심화. 기본 `nvidia.com/gpu` 스케줄링으로 필수 실습 수행.
+
+### G2 VPC Egress 확정: NAT + S3 Gateway Endpoint (2026-11-25)
+
+```text
+                   [EKS API: Private Endpoint]
+                             |
+                    (VPC private access)
+                             |
+    +------------------- VPC ---------------------+
+    | Private Subnet A        Private Subnet B     |
+    | CPU / GPU Node          GPU Node             |
+    |       |                      |               |
+    |       +----- private route tables -----------+
+    |                  |             |             |
+    |      S3 prefix-list route    0.0.0.0/0       |
+    |                  |             |             |
+    |           S3 Gateway VPCE     NAT Gateway    |
+    |                  |          (Public Subnet)  |
+    +------------------|-------------|-------------+
+                       |             |
+                      S3      ECR / other APIs
+```
+
+- **S3 데이터/Checkpoint:** Private Subnet의 모든 관련 route table에 S3 Gateway Endpoint를 연결한다. S3 목적지 Prefix List 경로가 NAT 기본 경로보다 우선한다. Endpoint 자체에 추가 시간당 요금은 없다.
+- **ECR 이미지/기타 아웃바운드:** 최초 구성은 Public Subnet의 NAT Gateway 1개를 사용한다. ECR Interface Endpoint는 초기 구축 범위에서 제외한다. 일부 ECR 레이어 전송은 S3 경로도 이용한다.
+- **EKS API:** Node는 EKS Private API Endpoint로 사설 접근하며, NAT와 별개의 경로다. 로컬 운영자 kubectl 접근 방식은 생성 전에 결정한다.
+- **운영 위험:** NAT 1개는 AZ 장애 시 가용성 저하 및 cross-AZ 트래픽 비용의 가능성을 수용하는 **실습용 구성**. EKS/EC2/GPU/EBS/NAT/공인 IPv4/S3 과금과 Terraform 완전 삭제를 별도 검증한다.
+- **현재 상태:** 설계 확정, Terraform 적용 및 실제 통신 테스트는 아직 미완료.
 
 ## 계층별 운영 책임
 
