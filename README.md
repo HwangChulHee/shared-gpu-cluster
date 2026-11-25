@@ -2,7 +2,7 @@
 
 > 저장소 URL은 기존 `shared-gpu-cluster`를 유지합니다. **목표는 GPU 공유 서비스 개발이 아니라 Linux GPU 서버 구축·운영 역량을 증명하고, 그 환경을 Kubernetes로 확장하는 것**입니다.
 
-**상태 (2026-11-24):** 7 Phase / 21 Lab. 서울 리전 On-Demand G/VT **8 vCPU 쿼터 승인·적용 확인**. **G1 g6.xlarge NVIDIA L4 구축·GPU YOLO 학습 기준선 측정·DCGM/Prometheus 관측·S3 결과 보존·EC2 종료 완료**. Batch/Worker 비교·OOM·EKS 배포는 아직 미수행입니다. [G1 실측 보고서](docs/reports/g1-baseline-2026-11-24.md).
+**상태 (2026-11-25):** 7 Phase / 21 Lab. 서울 리전 On-Demand G/VT **8 vCPU 쿼터** 확인. **G1 L4 GPU 8개 성능 실험(Batch·Workers), CUDA OOM 복구, S3 Checkpoint 학습 재개, 증거 S3 백업 및 EC2·루트 EBS 정리 완료**. EKS GPU Worker(G2) 및 Terraform GPU 재현 실측은 미수행. [11/25 G1 통합 실측 보고서](docs/reports/g1-performance-recovery-2026-11-25.md).
 
 ## 프로젝트 시나리오
 
@@ -48,8 +48,8 @@ GPU 장치 할당과 GPU 사용률은 구분합니다. **G1은 독립 EC2 1대, 
 - [단일 GPU → Kubernetes 확장 아키텍처](docs/architecture.md)
 - [사례 기반 실험 계획](docs/test-plan.md) · [공식·실무 근거](docs/references.md)
 - **[G1 5,000/500 COCO 데이터셋 준비 — GPU OFF](docs/runbooks/g1-perf-dataset-5k.md)** · [생성 스크립트](scripts/prepare-coco-perf-dataset.py)
-- **[G1 원커맨드 설치 (다음 GPU ON용, 통합 미검증)](docs/runbooks/g1-one-command-bootstrap.md)** · [G1 설치 스크립트](scripts/g1/bootstrap.sh)
-- **[2026-11-24 G1 NVIDIA L4 실측 보고서](docs/reports/g1-baseline-2026-11-24.md)**
+- **[G1 원커맨드 설치 (드라이버·CUDA 성공, 모니터링 초기 준비 실패 후 수동 확인; 전체 성공 마커 미확인)](docs/runbooks/g1-one-command-bootstrap.md)** · [G1 설치 스크립트](scripts/g1/bootstrap.sh)
+- **[2026-11-25 G1 성능 비교 8회·OOM·Checkpoint 복구 통합 보고서](docs/reports/g1-performance-recovery-2026-11-25.md)** · [2026-11-24 초기 기준선](docs/reports/g1-baseline-2026-11-24.md)
 - [GPU 비용·안전·삭제 원칙](docs/operations.md) · [GPU 실행 게이트와 OFF/ON/OFF 순서](docs/gpu-execution-gates.md)
 - [2026-11-13 목표·방향성·커리큘럼 검증 보고서](docs/goal-review-2026-11-13.md)
 - [2026-11-13 Lab 재배치 대응표](docs/migration-2026-11-13.md) · [이전 29→21 개편 기록](docs/migration-2026-11-12.md)
