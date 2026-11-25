@@ -19,6 +19,11 @@ CASES = [
     ("workers-b8-w8", 8, 8),
 ]
 
+EXTRA_CASES = [
+    ("batch-b32-w4", 32, 4),
+    ("batch-b32-w8", 32, 8),
+]
+
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
@@ -26,6 +31,8 @@ def main():
     p.add_argument("--session", required=True, help="Unique session identifier, e.g. g1-20261125-a")
     p.add_argument("--output", type=Path, default=Path("artifacts/g1-comparisons"))
     p.add_argument("--epochs", type=int, default=3)
+    p.add_argument("--extra-cases", action="store_true",
+                   help="Run only the two Batch 32 / Workers 4,8 follow-up cases")
     p.add_argument("--only-case", choices=[c[0] for c in CASES], help="Run one case first for staged validation")
     p.add_argument("--exclude-case", choices=[c[0] for c in CASES], help="Run remaining cases in a separate session")
     p.add_argument("--dry-run", action="store_true")
@@ -66,14 +73,17 @@ def main():
     if check.returncode:
         raise SystemExit(check.returncode)
 
+    if args.extra_cases and (args.only_case or args.exclude_case):
+        p.error("--extra-cases cannot be combined with --only-case/--exclude-case")
     if args.only_case and args.exclude_case:
         p.error("--only-case and --exclude-case cannot be combined")
+    available_cases = EXTRA_CASES if args.extra_cases else CASES
     selected_cases = [
-        case for case in CASES
+        case for case in available_cases
         if (not args.only_case or case[0] == args.only_case)
         and (not args.exclude_case or case[0] != args.exclude_case)
     ]
-    print("\\n=== Planned cases (sequential, no parallel GPU jobs) ===", flush=True)
+    print("\n=== Planned cases (sequential, no parallel GPU jobs) ===", flush=True)
     for name, batch, workers in selected_cases:
         print(f"{name}: batch={batch}, workers={workers}, epochs={args.epochs}", flush=True)
     if args.dry_run:
@@ -170,7 +180,7 @@ def main():
     if args.upload_s3:
         summary_dest = f"s3://{args.s3_bucket}/results/g1-comparisons/{args.session}/comparison.csv"
         subprocess.run(["aws", "s3", "cp", str(table), summary_dest, "--region", args.region], check=True)
-    print(f"\\n[COMPLETE] {len(rows)} experiments; comparison={table}", flush=True)
+    print(f"\n[COMPLETE] {len(rows)} experiments; comparison={table}", flush=True)
     print("GPU instance is NOT automatically stopped or terminated.", flush=True)
 
 
