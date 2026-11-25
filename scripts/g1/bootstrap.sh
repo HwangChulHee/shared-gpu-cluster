@@ -173,8 +173,25 @@ echo "monitoring" > "$STATE_DIR/stage"
 docker compose -f monitoring/g1/compose.yml config -q
 docker compose -f monitoring/g1/compose.yml up -d
 docker compose -f monitoring/g1/compose.yml ps
-curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://127.0.0.1:9100/metrics -o /tmp/g1-node-metrics
-curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://127.0.0.1:9400/metrics -o /tmp/g1-dcgm-metrics
+# A container can be "Started" before its HTTP server is ready.
+# curl --retry alone does not consistently retry HTTP 56 (connection reset).
+wait_metrics() {
+  local port=$1 output=$2 label=$3 attempt
+  for attempt in $(seq 1 30); do
+    if curl -fsS --connect-timeout 2 --max-time 8 "http://127.0.0.1:${port}/metrics" -o "$output"; then
+      echo "[G1] ${label} HTTP metrics ready (attempt ${attempt}/30)"
+      return 0
+    fi
+    echo "[G1] ${label} not ready (attempt ${attempt}/30)"
+    sleep 2
+  done
+  echo "[ERROR] ${label} failed to serve metrics"
+  docker compose -f monitoring/g1/compose.yml ps || true
+  docker compose -f monitoring/g1/compose.yml logs --tail 50 || true
+  return 1
+}
+wait_metrics 9100 /tmp/g1-node-metrics node-exporter
+wait_metrics 9400 /tmp/g1-dcgm-metrics dcgm-exporter
 grep -q 'node_cpu_seconds_total' /tmp/g1-node-metrics || { echo "Node metrics missing"; exit 4; }
 grep -q 'DCGM_FI_DEV_GPU_UTIL' /tmp/g1-dcgm-metrics || { echo "DCGM metrics missing"; exit 4; }
 
