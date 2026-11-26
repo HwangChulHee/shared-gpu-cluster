@@ -4,6 +4,12 @@
 
 ## Logical network design
 
+![G2 network architecture](../../docs/diagrams/g2/01-network.svg)
+
+[Editable draw.io source](../../docs/diagrams/g2/01-network.drawio)
+
+The diagram is a planned topology, not deployed infrastructure. Worker placement is illustrative.
+
 ```text
                          AWS-managed EKS API (future)
                               private endpoint
