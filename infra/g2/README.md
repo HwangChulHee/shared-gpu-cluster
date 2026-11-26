@@ -27,7 +27,7 @@ The integrated diagram combines resource placement and route targets in one view
 ![G2 EKS control plane architecture](../../docs/diagrams/g2/02-control-plane.svg)
 
 [Editable control-plane diagram](../../docs/diagrams/g2/02-control-plane.drawio). The network-stage snapshot remains above.
-- CPU and GPU node group sources are now defined; CNI identity, Pod Identity and add-ons remain future work.
+- CPU and GPU node group sources are now defined; CNI identity, Pod Identity and add-ons are now defined; local validation pending.
 
 ## CPU managed node group (source only)
 
@@ -41,7 +41,14 @@ The integrated diagram combines resource placement and route targets in one view
 - g6.xlarge, AL2023 x86_64 NVIDIA, On-Demand, min/desired/max 0/2/2, both private subnets; actual AZ placement is not guaranteed.
 - Encrypted 100 GiB gp3 root, IMDSv2 required, hop limit 1, shared worker IAM role.
 - Label `workload=gpu`; taint `nvidia.com/gpu=true:NoSchedule`. YOLO requires selector, toleration and GPU limit. Required node DaemonSets must tolerate the taint.
-- NVIDIA device plugin is separately installed; check CNI identity and add-on dependencies before apply. GPU source local validation pending.
+- NVIDIA device plugin is separately installed; check CNI identity and add-on dependencies before apply. GPU source passed local fmt/validate (2026-11-26).
+
+## EKS add-ons and Pod Identity (source only)
+
+- `addons.tf`: managed VPC CNI, Pod Identity Agent and kube-proxy before compute; CoreDNS after CPU nodes, selected to system nodes.
+- `pod-identity.tf`: dedicated CNI role via add-on association, YOLO role via gpu-training/yolo association. Existing bucket name supplied as `data_bucket_name`; datasets read-only, results/g2 read/write, prefix-scoped listing. No object deletion.
+- Add-on compatible defaults are resolved during plan; verify versions, configuration schema, agent/CNI tolerations and bootstrap behavior before ON. Actual ServiceAccount YAML is pending.
+- CNI and agent use NAT for AWS API access; S3 traffic uses the gateway endpoint. No AWS deployment yet.
 
 ## Local read-only checks (no AWS resources created)
 
@@ -52,7 +59,7 @@ terraform fmt -check
 terraform validate
 ```
 
-`terraform init -backend=false` downloads providers but does not create AWS resources; `terraform validate` checks configuration locally. The next stage adds CNI/pod IAM and add-ons. **Do not run `terraform apply` or create chargeable NAT/EIP until the full G2 ON checklist is complete**.
+`terraform init -backend=false` downloads providers but does not create AWS resources; `terraform validate` checks configuration locally. The next stage adds NVIDIA Device Plugin and workload manifests. **Do not run `terraform apply` or create chargeable NAT/EIP until the full G2 ON checklist is complete**.
 
 Once all stages are prepared, inspect `terraform plan` against the target AWS account and region, confirm budget/cleanup and backup, then explicitly proceed to `apply`.
 
