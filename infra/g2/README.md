@@ -1,6 +1,6 @@
-# G2 Terraform — OFF-1: network foundation (not deployed)
+# G2 Terraform — OFF-1: network and EKS control plane (not deployed)
 
-> **Status (2026-11-26): only VPC/subnet/routes/NAT/S3 endpoint source code exists. No EKS cluster, node group, Pod Identity or GPU resources created.** Don't run `terraform apply` yet. Terraform state is not committed.
+> **Status (2026-11-26): Network source passed local init/fmt/validate with Terraform 1.17.2 and AWS provider 6.74.0. EKS control plane source is added; its local validation is pending. No AWS resources created.** Don't run `terraform apply` yet. Terraform state is not committed.
 
 ## Logical network design
 
@@ -19,6 +19,14 @@ The integrated diagram combines resource placement and route targets in one view
 - Network code does not create an EKS Cluster, private API endpoint, security groups, IAM roles or nodes. These belong to the next steps.
 - The CIDR is a *proposed lab CIDR*; verify there is no overlap with any peering/VPN/on-prem networks before applying.
 
+## EKS control plane (source only)
+
+- [`eks.tf`](eks.tf): cluster IAM role, AmazonEKSClusterPolicy attachment, managed EKS cluster in both private subnets.
+- Public and private Kubernetes API access enabled; administrator public IPv4 `/32` CIDRs must be supplied as `admin_access_cidrs`. Worker API traffic uses the private endpoint.
+- AWS-created cluster security group; API authentication with creator-admin bootstrap for this lab. Standard support only; specify a currently supported `eks_version` before planning.
+- The network diagram above is the network-stage snapshot; an expanded control-plane diagram is pending.
+- Node groups, Pod Identity and add-ons remain future work.
+
 ## Local read-only checks (no AWS resources created)
 
 ```bash
@@ -28,7 +36,7 @@ terraform fmt -check
 terraform validate
 ```
 
-`terraform init -backend=false` downloads providers but does not create AWS resources; `terraform validate` checks configuration locally. The next stage adds EKS, node groups, IAM and remote administrator access strategy. **Do not run `terraform apply` or create chargeable NAT/EIP until the full G2 ON checklist is complete**.
+`terraform init -backend=false` downloads providers but does not create AWS resources; `terraform validate` checks configuration locally. The next stage adds node groups, pod IAM and add-ons. **Do not run `terraform apply` or create chargeable NAT/EIP until the full G2 ON checklist is complete**.
 
 Once all stages are prepared, inspect `terraform plan` against the target AWS account and region, confirm budget/cleanup and backup, then explicitly proceed to `apply`.
 
@@ -36,5 +44,5 @@ Once all stages are prepared, inspect `terraform plan` against the target AWS ac
 
 - AWS Region: ap-northeast-2; two subnets each in AZ 2a, 2c, in one VPC.
 - Existing G1 S3 bucket is not created or modified by this Terraform root.
-- Public EKS API access for WSL `kubectl` is not yet decided; a restricted public endpoint alongside the private endpoint is a possible lab choice.
+- Public EKS API access for WSL `kubectl` is restricted to supplied administrator IPv4 /32 CIDRs; private endpoint is enabled.
 - G2 Batch 32/64/128/256 capacity tests and actual YOLO Job are **later G2 ON tasks**, not part of this networking stage.
