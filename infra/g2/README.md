@@ -8,7 +8,15 @@
 
 [Editable draw.io source](../../docs/diagrams/g2/01-network.drawio)
 
-The diagram is a planned topology, not deployed infrastructure. Private subnets are reserved for future workers; placement is not fixed. Route tables are logical configurations; colored arrows represent route targets rather than physical hops. The S3 gateway endpoint is VPC-scoped and associated with both private route tables.
+The topology is a planned design, not deployed infrastructure. Private subnets are reserved for future workers; placement is not fixed.
+
+### Network routing
+
+![G2 network routing](../../docs/diagrams/g2/01-network/traffic-flow.svg)
+
+[Editable routing diagram](../../docs/diagrams/g2/01-network/traffic-flow.drawio)
+
+Route tables are logical configurations; colored arrows indicate route targets rather than physical hops. The S3 gateway endpoint is VPC-scoped and associated with both private route tables.
 
 - Private nodes will have **no public IPv4**. NAT in public subnet allows public API, ECR and internet egress (but not unsolicited inbound).
 - **S3 Gateway Endpoint** is associated with *both* private route tables. AWS installs S3 prefix-list routes; S3 GetObject/PutObject uses endpoint rather than NAT. S3 IAM and bucket policy remain separate.
