@@ -1,6 +1,6 @@
 # G2 Terraform — OFF-1: network and EKS control plane (not deployed)
 
-> **Status (2026-11-26): Network source passed local init/fmt/validate with Terraform 1.17.2 and AWS provider 6.74.0. EKS control plane source is added; its local validation is pending. No AWS resources created.** Don't run `terraform apply` yet. Terraform state is not committed.
+> **Status (2026-11-26): Network source passed local init/fmt/validate with Terraform 1.17.2 and AWS provider 6.74.0. EKS control plane source also passed local fmt/validate (2026-11-26). No AWS resources created.** Don't run `terraform apply` yet. Terraform state is not committed.
 
 ## Logical network design
 
@@ -24,7 +24,9 @@ The integrated diagram combines resource placement and route targets in one view
 - [`eks.tf`](eks.tf): cluster IAM role, AmazonEKSClusterPolicy attachment, managed EKS cluster in both private subnets.
 - Public and private Kubernetes API access enabled; administrator public IPv4 `/32` CIDRs must be supplied as `admin_access_cidrs`. Worker API traffic uses the private endpoint.
 - AWS-created cluster security group; API authentication with creator-admin bootstrap for this lab. Standard support only; specify a currently supported `eks_version` before planning.
-- The network diagram above is the network-stage snapshot; an expanded control-plane diagram is pending.
+![G2 EKS control plane architecture](../../docs/diagrams/g2/02-control-plane.svg)
+
+[Editable control-plane diagram](../../docs/diagrams/g2/02-control-plane.drawio). The network-stage snapshot remains above.
 - Node groups, Pod Identity and add-ons remain future work.
 
 ## Local read-only checks (no AWS resources created)
