@@ -8,6 +8,8 @@
 
 [Editable draw.io source](../../docs/diagrams/g2/01-network.drawio)
 
+**Detailed routing diagram (study reference):** [SVG](../../docs/diagrams/g2/01-network/with-route-tables.svg) · [Editable draw.io](../../docs/diagrams/g2/01-network/with-route-tables.drawio). Includes the shared public route table and both private route tables. The main diagram omits those nodes for readability.
+
 The integrated diagram combines resource placement and route targets in one view. This is a planned design, not deployed infrastructure. Private subnets are reserved for future workers; their placement is not fixed. Colored arrows indicate route targets, not physical hops. The S3 gateway endpoint is VPC-scoped and associated with both private route tables.
 
 - Private nodes will have **no public IPv4**. NAT in public subnet allows public API, ECR and internet egress (but not unsolicited inbound).
