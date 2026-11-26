@@ -26,3 +26,25 @@ variable "availability_zones" {
     error_message = "Choose exactly two distinct availability zones."
   }
 }
+
+variable "eks_version" {
+  description = "Kubernetes minor version in EKS standard support; choose before planning"
+  type        = string
+
+  validation {
+    condition     = can(regex("^1\\.[0-9]+$", var.eks_version))
+    error_message = "Use a Kubernetes minor version such as 1.XX."
+  }
+}
+
+variable "admin_access_cidrs" {
+  description = "Administrator public IPv4 addresses allowed to reach the EKS public API, each as /32"
+  type        = list(string)
+
+  validation {
+    condition = length(var.admin_access_cidrs) > 0 && alltrue([
+      for cidr in var.admin_access_cidrs : can(cidrnetmask(cidr)) && endswith(cidr, "/32")
+    ])
+    error_message = "Supply at least one valid IPv4 /32 administrator CIDR."
+  }
+}
