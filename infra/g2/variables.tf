@@ -48,3 +48,8 @@ variable "admin_access_cidrs" {
     error_message = "Supply at least one valid IPv4 /32 administrator CIDR."
   }
 }
+
+variable "data_bucket_name" {
+  description = "Existing G1 S3 bucket for datasets and G2 results"
+  type        = string
+}
