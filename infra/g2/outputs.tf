@@ -37,3 +37,11 @@ output "eks_cluster_security_group_id" {
 output "eks_cluster_role_arn" {
   value = aws_iam_role.eks_cluster.arn
 }
+
+output "cpu_node_group_name" {
+  value = aws_eks_node_group.cpu.node_group_name
+}
+
+output "eks_node_role_arn" {
+  value = aws_iam_role.eks_node.arn
+}
