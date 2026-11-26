@@ -27,14 +27,21 @@ The integrated diagram combines resource placement and route targets in one view
 ![G2 EKS control plane architecture](../../docs/diagrams/g2/02-control-plane.svg)
 
 [Editable control-plane diagram](../../docs/diagrams/g2/02-control-plane.drawio). The network-stage snapshot remains above.
-- CPU node group source is now defined; GPU nodes, CNI identity, Pod Identity and add-ons remain future work.
+- CPU and GPU node group sources are now defined; CNI identity, Pod Identity and add-ons remain future work.
 
 ## CPU managed node group (source only)
 
 - [`nodes.tf`](nodes.tf): m6i.large, AL2023 x86_64, On-Demand, min/desired/max 1/1/2, both private subnets, label `workload=system`, no taint.
 - Launch template: encrypted 50 GiB gp3 root, delete on termination, IMDSv2 required and hop limit 1. No custom AMI or security group; EKS manages bootstrap and cluster SG attachment.
 - Node role: AmazonEKSWorkerNodePolicy and AmazonEC2ContainerRegistryPullOnly. CNI permissions are deliberately not on this role; configure dedicated CNI identity and add-on dependencies before apply. Verify host-network Pod credential exposure separately.
-- Local validation pending; no deployment. Single CPU node is not HA.
+- CPU source passed local fmt/validate (2026-11-26); no deployment. Single CPU node is not HA.
+
+## GPU managed node group (source only)
+
+- g6.xlarge, AL2023 x86_64 NVIDIA, On-Demand, min/desired/max 0/2/2, both private subnets; actual AZ placement is not guaranteed.
+- Encrypted 100 GiB gp3 root, IMDSv2 required, hop limit 1, shared worker IAM role.
+- Label `workload=gpu`; taint `nvidia.com/gpu=true:NoSchedule`. YOLO requires selector, toleration and GPU limit. Required node DaemonSets must tolerate the taint.
+- NVIDIA device plugin is separately installed; check CNI identity and add-on dependencies before apply. GPU source local validation pending.
 
 ## Local read-only checks (no AWS resources created)
 
@@ -45,7 +52,7 @@ terraform fmt -check
 terraform validate
 ```
 
-`terraform init -backend=false` downloads providers but does not create AWS resources; `terraform validate` checks configuration locally. The next stage adds GPU nodes, CNI/pod IAM and add-ons. **Do not run `terraform apply` or create chargeable NAT/EIP until the full G2 ON checklist is complete**.
+`terraform init -backend=false` downloads providers but does not create AWS resources; `terraform validate` checks configuration locally. The next stage adds CNI/pod IAM and add-ons. **Do not run `terraform apply` or create chargeable NAT/EIP until the full G2 ON checklist is complete**.
 
 Once all stages are prepared, inspect `terraform plan` against the target AWS account and region, confirm budget/cleanup and backup, then explicitly proceed to `apply`.
 
