@@ -1,4 +1,4 @@
-# OFF-1: CPU and GPU managed node groups. CNI identity is configured in a later step.
+# OFF-1: CPU and GPU managed node groups. CNI identity and bootstrap add-ons must precede compute.
 resource "aws_iam_role" "eks_node" {
   name = "${var.name}-eks-node-role"
 
@@ -73,6 +73,9 @@ resource "aws_eks_node_group" "cpu" {
 
   depends_on = [
     aws_iam_role_policy_attachment.eks_node,
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.pod_identity,
+    aws_eks_addon.kube_proxy,
     aws_route.private_default,
     aws_route.public_default,
     aws_route_table_association.private,
@@ -136,6 +139,9 @@ resource "aws_eks_node_group" "gpu" {
 
   depends_on = [
     aws_iam_role_policy_attachment.eks_node,
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.pod_identity,
+    aws_eks_addon.kube_proxy,
     aws_route.private_default,
     aws_route.public_default,
     aws_route_table_association.private,
