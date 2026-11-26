@@ -2,7 +2,7 @@
 
 > 저장소 URL은 기존 `shared-gpu-cluster`를 유지합니다. **목표는 GPU 공유 서비스 개발이 아니라 Linux GPU 서버 구축·운영 역량을 증명하고, 그 환경을 Kubernetes로 확장하는 것**입니다.
 
-**상태 (2026-11-25):** 7 Phase / 21 Lab. 서울 리전 On-Demand G/VT **8 vCPU 쿼터** 확인. **G1 L4 GPU 8개 성능 실험(Batch·Workers), CUDA OOM 복구, S3 Checkpoint 학습 재개, 증거 S3 백업 및 EC2·루트 EBS 정리 완료**. **Batch 64/128/256 한계 측정은 G2로 이관**했으며, EKS GPU Worker(G2) 및 Terraform GPU 재현 실측은 미수행. **G2 네트워크 Terraform 로컬 검증 완료(1.17.2 / AWS 6.74.0), EKS Control Plane 코드 작성 완료(추가 로컬 검증 및 AWS apply 미수행)**. [11/25 G1 통합 실측 보고서](docs/reports/g1-performance-recovery-2026-11-25.md).
+**상태 (2026-11-25):** 7 Phase / 21 Lab. 서울 리전 On-Demand G/VT **8 vCPU 쿼터** 확인. **G1 L4 GPU 8개 성능 실험(Batch·Workers), CUDA OOM 복구, S3 Checkpoint 학습 재개, 증거 S3 백업 및 EC2·루트 EBS 정리 완료**. **Batch 64/128/256 한계 측정은 G2로 이관**했으며, EKS GPU Worker(G2) 및 Terraform GPU 재현 실측은 미수행. **G2 네트워크 Terraform 로컬 검증 완료(1.17.2 / AWS 6.74.0), EKS Control Plane 코드 및 로컬 fmt/validate 완료(AWS apply 미수행)**. [11/25 G1 통합 실측 보고서](docs/reports/g1-performance-recovery-2026-11-25.md).
 
 ## 프로젝트 시나리오
 
