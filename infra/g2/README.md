@@ -8,25 +8,7 @@
 
 [Editable draw.io source](../../docs/diagrams/g2/01-network.drawio)
 
-The diagram is a planned topology, not deployed infrastructure. Worker placement is illustrative.
-
-```text
-                         AWS-managed EKS API (future)
-                              private endpoint
-                                     |
-                    G2 VPC: 10.42.0.0/16 (planned)
-                      /                          \
-           ap-northeast-2a                  ap-northeast-2c
-          public 10.42.0.0/24              public 10.42.1.0/24
-            [NAT Gateway + EIP]               (no NAT)
-                 |                                 |
-          private 10.42.10.0/24           private 10.42.11.0/24
-          [future CPU/GPU]                 [future GPU]
-                 |                                 |
-            private RT A                      private RT C
-            0.0.0.0/0 ────► same NAT ◄────── 0.0.0.0/0
-            S3 prefix route → S3 Gateway ← S3 prefix route
-```
+The diagram is a planned topology, not deployed infrastructure. Private subnets are reserved for future workers; placement is not fixed. Route tables are logical configurations; colored arrows represent route targets rather than physical hops. The S3 gateway endpoint is VPC-scoped and associated with both private route tables.
 
 - Private nodes will have **no public IPv4**. NAT in public subnet allows public API, ECR and internet egress (but not unsolicited inbound).
 - **S3 Gateway Endpoint** is associated with *both* private route tables. AWS installs S3 prefix-list routes; S3 GetObject/PutObject uses endpoint rather than NAT. S3 IAM and bucket policy remain separate.
