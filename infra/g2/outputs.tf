@@ -21,3 +21,19 @@ output "nat_gateway_id" {
 output "s3_gateway_endpoint_id" {
   value = aws_vpc_endpoint.s3.id
 }
+
+output "eks_cluster_name" {
+  value = aws_eks_cluster.g2.name
+}
+
+output "eks_cluster_endpoint" {
+  value = aws_eks_cluster.g2.endpoint
+}
+
+output "eks_cluster_security_group_id" {
+  value = aws_eks_cluster.g2.vpc_config[0].cluster_security_group_id
+}
+
+output "eks_cluster_role_arn" {
+  value = aws_iam_role.eks_cluster.arn
+}
